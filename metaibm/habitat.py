@@ -9,11 +9,8 @@ import random
 import math
 import copy
 
-from .individual import individual
-
-
 class habitat():
-    def __init__(self, hab_name, hab_index, hab_location, num_env_types, env_types_name, mean_env_ls, var_env_ls, length, width, dormancy_pool_max_size=0):
+    def __init__(self, hab_name, hab_index, hab_location, num_env_types, env_types_name, mean_env_ls, var_env_ls, length, width, dormancy_pool_max_size=0, global_index=0):
         '''
         int num_env_types is the number of environment types in the habitat.
         env_types_name is the list of names of env_types.
@@ -24,7 +21,8 @@ class habitat():
         int size is the the number of microsites within a habitat.
         '''
         self.name = hab_name
-        self.index = hab_index
+        self.index = hab_index            # unique index within patches
+        self.global_index = global_index  # unique index across global metacommunity, used as 'homepatch' of Nemo's individual
         self.location = hab_location 
         self.num_env_types = num_env_types
         self.env_types_name = env_types_name
@@ -117,6 +115,7 @@ class habitat():
                 self.species_category[indi_object.species_id] = {indi_object.gender:[(len_id, wid_id)]}
                 
     def del_individual(self, len_id, wid_id):
+        ''' the individual leaves the microsite, not necessarily dead (no recycle()) '''
         if self.set['microsite_individuals'][len_id][wid_id] == None:
             print('the microsite in the habitat is empty.')
         else:
@@ -126,18 +125,6 @@ class habitat():
             self.occupied_site_pos_ls.remove((len_id, wid_id))
             self.indi_num -=1 
             self.species_category[indi_object.species_id][indi_object.gender].remove((len_id, wid_id))    
-    
-    def habitat_disturbance_process(self):
-        microsite_individuals = self._empty_microsite_grid()
-        self.set['microsite_individuals'] = microsite_individuals
-        self.empty_site_pos_ls = [(i, j) for i in range(self.length) for j in range(self.width)]
-        self.occupied_site_pos_ls = []
-        self.indi_num = 0
-        self.species_category = {}
-        self.asexual_parent_pos_ls = []
-        self.species_category_for_sexual_parents_pos = {} 
-        self.offspring_pool = []
-        self.immigrant_pool = []
         
     def get_hab_pairwise_empty_site_pos_ls(self):
         ''' return as [((len_id, wid_id), (len_id, wid_id)) ...]'''
@@ -191,18 +178,19 @@ class habitat():
             getattr(self, name).remove(ObjOrMarker)
         return [ObjOrMarker for _, ObjOrMarker in picked_ls]
 
-    def hab_initialize(self, traits_num, pheno_names_ls, pheno_var_ls, geno_len_ls, reproduce_mode, species_2_phenotype_ls):
-        mean_pheno_val_ls = self.mean_env_ls
-        species_id = 'sp%d'%(species_2_phenotype_ls.index(mean_pheno_val_ls)+1)
-        
+    def hab_initialize(self, indfactories, species_2_phenotype_ls, reproduce_mode='sexual'):
+        ''' NemoBackend: reset the microsites (residents recycled, pools untouched), then fill every microsite with a founder of the species matched to this habitat's mean environment
+        INPUT: indfactories {species_id: indfactory}, species_2_phenotype_ls, reproduce_mode 'sexual' | 'asexual'
+        RETURN: 0 '''
+        species_id = 'sp%d' % (species_2_phenotype_ls.index(self.mean_env_ls) + 1)
+        indfactory = indfactories[species_id]
+        self.hab_clear_up_microsite_individuals()    # NemoBackend Methods: recycle residents, empty all microsites (re-initializing mid-simulation is rare, but safe)
         for row in range(self.length):
             for col in range(self.width):
-                if reproduce_mode == 'asexual': gender = 'female'
                 if reproduce_mode == 'sexual': gender = random.sample(('male', 'female'), 1)[0]
-                indi_object = individual(species_id=species_id, traits_num=traits_num, pheno_names_ls=pheno_names_ls, gender=gender)
-                indi_object.random_init_indi(mean_pheno_val_ls, pheno_var_ls, geno_len_ls)
-                self.add_individual(indi_object, row, col)
-        return 0    
+                elif reproduce_mode == 'asexual': gender = 'female'
+                self.add_individual(indfactory.make_founder(gender, self.global_index), row, col)
+        return 0 
     
     def get_microsite_env_val_ls(self, len_id, wid_id):
         ''' return a list of environment value of all the environment type in the order of env_types_name '''
@@ -232,6 +220,7 @@ class habitat():
         return survival_rate
 
     def hab_dead_selection(self, base_dead_rate, fitness_wid, method):
+        ''' NemoBackend '''
         self.asexual_parent_pos_ls = []                           # If an individual can fit its environment condition well, it goes through asexual reproduction.
         self.species_category_for_sexual_parents_pos = {}         # If an individual can not fit its environmet condition, it goes through sexual reproduction.
         counter = 0
@@ -245,7 +234,8 @@ class habitat():
                     survival_rate = self.survival_rate(d=base_dead_rate, phenotype_ls=phenotype_ls, env_val_ls=env_val_ls, w=fitness_wid, method=method)
                     
                     if survival_rate < np.random.uniform(0,1,1)[0]:
-                        self.del_individual(len_id=row, wid_id=col)
+                        self.del_individual(len_id=row, wid_id=col)           # bookkeeping first (del_individual reads gender)
+                        individual_object.recycle()                           # set individual.is_alive = False; move the nemo_individual into Nemo's recycling-pool
                         counter += 1
                     else:
                         if survival_rate >= self.reproduction_mode_threhold: 
@@ -304,37 +294,17 @@ class habitat():
         return len(self.hab_sexual_pairwise_parents_ls())  
     
     def hab_sex_reproduce_mutate_with_num(self, mutation_rate, pheno_var_ls, num):
-        ''' asexual reproduction for dispersal controlled by the parameter, num '''
-        hab_disp_pool = []
-        pairwise_parents_pos_ls = random.sample(self.hab_sexual_pairwise_parents_ls(), num)
-        
+        ''' NemoBackend: sexual birth of num offspring from random parent pairs; inheritance, recombination and mutation by Nemo's makeOffsprg()
+        INPUT: mutation_rate, pheno_var_ls = kept for the interface, ignored (set by the species' Nemo parameters); num = number of offspring
+        RETURN: list of offspring indi_obj '''
+        list_of_offspring = []
+        pairwise_parents_pos_ls = random.sample(self.hab_sexual_pairwise_parents_ls(), num)     # TODO(offspring_num): now num <= number of parent pairs (sampled without replacement: at most one offspring per pair); lift this so sexual_birth_rate is a true birth rate (offspring per pair, may be > 1)
         for female_pos, male_pos in pairwise_parents_pos_ls:
-            female_row, female_col = female_pos[0], female_pos[1]
-            male_row, male_col = male_pos[0], male_pos[1]
-            female_indi_obj = self.set['microsite_individuals'][female_row][female_col]
-            male_indi_obj = self.set['microsite_individuals'][male_row][male_col]
-            
-            new_indivi_object = copy.deepcopy(female_indi_obj)
-            new_indivi_object.gender = random.sample(('male', 'female'), 1)[0]
-            for i in range(new_indivi_object.traits_num):
-                pheno_name = new_indivi_object.pheno_names_ls[i]
-                var = pheno_var_ls[i] ##### to be improved  #####
-                
-                female_bi_genotype = female_indi_obj.genotype_set[pheno_name]
-                genotype1 = random.sample(female_bi_genotype, 1)[0]
-                
-                male_bi_genotype = male_indi_obj.genotype_set[pheno_name]
-                genotype2 = random.sample(male_bi_genotype, 1)[0]
-                
-                new_bi_genotype = [genotype1, genotype2]
-                phenotype = np.mean(new_bi_genotype) + random.gauss(0, var)
-                
-                new_indivi_object.genotype_set[pheno_name] = new_bi_genotype
-                new_indivi_object.phenotype_set[pheno_name] = phenotype
-                
-            new_indivi_object.mutation(rate=mutation_rate, pheno_var_ls=pheno_var_ls)
-            hab_disp_pool.append(new_indivi_object)
-        return hab_disp_pool
+            female_indi_obj = self.set['microsite_individuals'][female_pos[0]][female_pos[1]]
+            male_indi_obj = self.set['microsite_individuals'][male_pos[0]][male_pos[1]]
+            gender = random.sample(('male', 'female'), 1)[0]
+            list_of_offspring.append(female_indi_obj.indfactory.make_offspring(female_indi_obj, male_indi_obj, gender, home_habitat=self.global_index))
+        return list_of_offspring
     
     def hab_mixed_sexual_pairwise_parents_ls(self):
         pair_parents_ls = []
@@ -434,19 +404,17 @@ class habitat():
         return counter
         
     def hab_sexual_reprodece_germinate(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
-        ''' birth into empty site directly without considering the competition between local offspring and immigrant offspring '''
+        ''' NemoBackend: sexual birth directly into empty microsites, without competition between local offspring and immigrants
+        INPUT: sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        RETURN: number germinated (num <= empty sites) '''
         counter = 0
-        empty_sites_pos_ls = self.empty_site_pos_ls
-        if len(empty_sites_pos_ls) < int(self.hab_sexual_pairwise_parents_num() * sexual_birth_rate): 
-            num = len(empty_sites_pos_ls)
-        elif len(empty_sites_pos_ls) >= int(self.hab_sexual_pairwise_parents_num() * sexual_birth_rate): 
-            num = int(self.hab_sexual_pairwise_parents_num() * sexual_birth_rate)  
-        hab_offsprings_for_germinate = self.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num)
+        num = min(len(self.empty_site_pos_ls), int(self.hab_sexual_pairwise_parents_num() * sexual_birth_rate))
+        hab_offsprings_for_germinate = self.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num) # NemoBackended methods
     
-        random.shuffle(empty_sites_pos_ls)
+        random.shuffle(self.empty_site_pos_ls)
         random.shuffle(hab_offsprings_for_germinate)
         
-        for pos, indi_object in list(zip(empty_sites_pos_ls, hab_offsprings_for_germinate)):
+        for pos, indi_object in list(zip(self.empty_site_pos_ls, hab_offsprings_for_germinate)):
             len_id = pos[0]
             wid_id = pos[1]
             self.add_individual(indi_object, len_id, wid_id)
@@ -567,19 +535,15 @@ class habitat():
         return len(self.offspring_pool)
     
     def hab_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
-        self.offspring_pool = []
+        ''' NemoBackend: sexual birth into offspring_pool (expected offspring = parent_pairs x sexual_birth_rate; the fractional part is born by chance)
+        INPUT: sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        RETURN: len(offspring_pool) '''
+        self.hab_clear_up_offspring_pool()                          # NemoBackend Method: recycle leftover offspring instead of dropping them
         offspring_num = self.hab_sexual_pairwise_parents_num() * sexual_birth_rate
-        offspring_num_int = int(offspring_num)                    #整数部分
-        offspring_num_dem = offspring_num - offspring_num_int     #小数部分
-        
-        offspring_ls = self.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=offspring_num_int) # a list of offspring individual object
-        if offspring_num_dem > np.random.uniform(0,1,1)[0]:
-            one_offspring_ls = self.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)
-        else:
-            one_offspring_ls = []
-        self.offspring_pool = offspring_ls + one_offspring_ls
+        num = int(offspring_num + np.random.uniform(0,1,1)[0])      # stochastic rounding: the fractional part is born by chance
+        self.offspring_pool = self.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num) # NemoBackend Method: return a list of offspring individual object
         return len(self.offspring_pool)
-    
+
     def hab_mix_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
         self.offspring_pool = []
         asex_offspring_num = len(self.asexual_parent_pos_ls) * asexual_birth_rate
@@ -605,65 +569,70 @@ class habitat():
         return len(self.offspring_pool)
 
 #*********************************** local germination processes ************************************************
-    def hab_local_germinate_from_offspring_and_dormancy_pool(self, is_remove):
+    def _germinate_from_pools(self, pool_name_ls, is_remove=True):
+        ''' germinate individuals randomly chosen from the given pools into empty microsites
+        INPUT: pool_name_ls = pool names in the original order, e.g. ('offspring_pool', 'immigrant_pool', 'dormancy_pool'); is_remove = True (default): germinated individuals leave their pool / False (reserved): a non-mutated clone germinates, the original stays in its pool
+        RETURN: number germinated '''
+        if not is_remove: raise NotImplementedError('is_remove=False (germinate a non-mutated clone, keep the original in its pool) waits for pynemo IndFactory::makeClonedOffsprg')
         hab_empty_pos_ls = self.empty_site_pos_ls
-        hab_offspring_and_dormancy_pool_with_labels = list(zip(self.offspring_pool + self.dormancy_pool, 
-                                            ['offspring_pool']*len(self.offspring_pool) + ['dormancy_pool']*len(self.dormancy_pool)))
-        
-        random.shuffle(hab_empty_pos_ls)
-        random.shuffle(hab_offspring_and_dormancy_pool_with_labels)
-        
-        counter = 0
-        for (row_id, col_id), (indi_object, pool_label) in list(zip(hab_empty_pos_ls, hab_offspring_and_dormancy_pool_with_labels)):
-            self.add_individual(indi_object=indi_object, len_id=row_id, wid_id=col_id)
-            if is_remove: getattr(self, pool_label).remove(indi_object)
-            counter += 1
-        return counter
-    
-    def hab_local_germinate_from_offspring_and_immigrant_pool(self, is_remove):
-        hab_empty_pos_ls = self.empty_site_pos_ls
-        hab_offspring_and_immigrant_pool_with_labels = list(zip(self.offspring_pool + self.immigrant_pool, 
-                                            ['offspring_pool']*len(self.offspring_pool) + ['immigrant_pool']*len(self.immigrant_pool)))
-        
-        random.shuffle(hab_empty_pos_ls)
-        random.shuffle(hab_offspring_and_immigrant_pool_with_labels)
-        
-        counter = 0
-        for (row_id, col_id), (indi_object, pool_label) in list(zip(hab_empty_pos_ls, hab_offspring_and_immigrant_pool_with_labels)):
-            self.add_individual(indi_object=indi_object, len_id=row_id, wid_id=col_id)
-            if is_remove: getattr(self, pool_label).remove(indi_object)
-            counter += 1
-        return counter
-        
-    def hab_local_germinate_from_offspring_immigrant_and_dormancy_pool(self, is_remove):
-        hab_empty_pos_ls = self.empty_site_pos_ls
-        offspring_immigrant_and_dormancy_pool_with_labels = list(zip(self.offspring_pool + self.immigrant_pool + self.dormancy_pool, 
-                                                ['offspring_pool']*len(self.offspring_pool) + ['immigrant_pool']*len(self.immigrant_pool) + ['dormancy_pool']*len(self.dormancy_pool)))
+        hab_pools_with_labels = [(indi_object, pool_name) for pool_name in pool_name_ls for indi_object in getattr(self, pool_name)]
 
         random.shuffle(hab_empty_pos_ls)
-        random.shuffle(offspring_immigrant_and_dormancy_pool_with_labels)
-        
+        random.shuffle(hab_pools_with_labels)
+
         counter = 0
-        for (row_id, col_id), (indi_object, pool_label) in list(zip(hab_empty_pos_ls, offspring_immigrant_and_dormancy_pool_with_labels)):
-            self.add_individual(indi_object=indi_object, len_id=row_id, wid_id=col_id)
-            if is_remove: getattr(self, pool_label).remove(indi_object)
+        for (row_id, col_id), (indi_object, pool_label) in list(zip(hab_empty_pos_ls, hab_pools_with_labels)):
+            if is_remove:
+                self.add_individual(indi_object=indi_object, len_id=row_id, wid_id=col_id)
+                getattr(self, pool_label).remove(indi_object)
+            else:
+                pass # TODO(makeClone): self.add_individual(indi_object=indi_object.indfactory.make_clone(indi_object, mutate=False), len_id=row_id, wid_id=col_id)
             counter += 1
         return counter
+
+    def hab_local_germinate_from_offspring_and_dormancy_pool(self, is_remove=True):
+        ''' germinate individuals from offspring_pool + dormancy_pool into empty microsites
+        INPUT: is_remove = True (default): germinated individuals leave their pool / False: reserved for clone germination (TODO(makeClone))
+        RETURN: number germinated '''
+        return self._germinate_from_pools(('offspring_pool', 'dormancy_pool'), is_remove)
+
+    def hab_local_germinate_from_offspring_and_immigrant_pool(self, is_remove=True):
+        ''' same as hab_local_germinate_from_offspring_and_dormancy_pool(), from offspring_pool + immigrant_pool '''
+        return self._germinate_from_pools(('offspring_pool', 'immigrant_pool'), is_remove)
+
+    def hab_local_germinate_from_offspring_immigrant_and_dormancy_pool(self, is_remove=True):
+        ''' same as hab_local_germinate_from_offspring_and_dormancy_pool(), from offspring_pool + immigrant_pool + dormancy_pool '''
+        return self._germinate_from_pools(('offspring_pool', 'immigrant_pool', 'dormancy_pool'), is_remove)
     
 #************************** dormancy process in the habitat *********************************************************
+    def _recycle_dropped(self, before_ls, after_ls):
+        ''' NemoBackend: recycle every individual of before_ls that is not in after_ls (dropped by MetaIBM's pool bookkeeping)
+        INPUT: before_ls = individuals in offspring / immigrant / dormancy pools before the bookkeeping; after_ls = individuals in those pools after it
+        RETURN: number recycled '''
+        after_set = set(after_ls)                                                       # identity-based lookup (individual has no __eq__ / __hash__)
+        dropped_ls = [indi_obj for indi_obj in before_ls if indi_obj not in after_set]  # keep before_ls order; a duplicate shows up as a double recycle
+        for indi_obj in dropped_ls:
+            indi_obj.recycle()                                                          # NemoBackend Methods
+        return len(dropped_ls)
+
     def hab_dormancy_process_from_offspring_pool_to_dormancy_pool(self):
+        ''' NemoBackend: offspring enter the dormancy pool (capacity dormancy_pool_max_size); immigrants and everyone else dropped from the pools are recycled
+        RETURN: (survival_in_dormancy_pool_num, eliminate_from_dormancy_pool_num, offspring_num, len(dormancy_pool)) '''
+        before_ls = self.offspring_pool + self.immigrant_pool + self.dormancy_pool
+
         offspring_num = len(self.offspring_pool)
         dormancy_num = len(self.dormancy_pool)
         
         if self.dormancy_pool_max_size == 0:
-            eliminate_from_dormancy_pool_num = 0
+            eliminate_from_dormancy_pool_num = dormancy_num  # 如果中途改变 dormancy_pool_max_size 的值
             survival_in_dormancy_pool_num = 0
             offspring_num = 0
             self.offspring_pool = []
             self.immigrant_pool = []
+            self.dormancy_pool = []
         
         elif offspring_num > self.dormancy_pool_max_size:
-            eliminate_from_dormancy_pool_num = self.dormancy_pool_max_size
+            eliminate_from_dormancy_pool_num = dormancy_num   # when full: dormancy_num = self.dormancy_pool_max_size
             survival_in_dormancy_pool_num = 0
             offspring_num = self.dormancy_pool_max_size
             self.dormancy_pool = random.sample(self.offspring_pool, self.dormancy_pool_max_size)
@@ -684,15 +653,22 @@ class habitat():
             self.dormancy_pool = survival_dormancy_pool + self.offspring_pool
             self.offspring_pool = []
             self.immigrant_pool = []
+
+        after_ls = self.offspring_pool + self.immigrant_pool + self.dormancy_pool
+        self._recycle_dropped(before_ls, after_ls)              # NemoBackend Method
         return survival_in_dormancy_pool_num, eliminate_from_dormancy_pool_num, offspring_num, len(self.dormancy_pool)
     
     def hab_dormancy_process_from_offspring_pool_and_immigrant_pool(self):
+        ''' NemoBackend: offspring and immigrants enter the dormancy pool (capacity dormancy_pool_max_size; priority offspring > immigrants > old dormants); everyone dropped is recycled
+        RETURN: (survival_in_dormancy_pool_num, eliminate_from_dormancy_pool_num, new_dormancy_num, len(dormancy_pool)) '''
+        before_ls = self.offspring_pool + self.immigrant_pool + self.dormancy_pool
+
         offspring_num = len(self.offspring_pool)
         immigrant_num = len(self.immigrant_pool)
         dormancy_num = len(self.dormancy_pool)
     
         if self.dormancy_pool_max_size < offspring_num:
-            eliminate_from_dormancy_pool_num = self.dormancy_pool_max_size
+            eliminate_from_dormancy_pool_num = dormancy_num     # when full: dormancy_num = self.dormancy_pool_max_size
             survival_in_dormancy_pool_num = 0
             new_dormancy_num = self.dormancy_pool_max_size
             self.dormancy_pool = random.sample(self.offspring_pool, self.dormancy_pool_max_size)
@@ -700,7 +676,7 @@ class habitat():
             self.immigrant_pool = []
             
         elif offspring_num <= self.dormancy_pool_max_size < (offspring_num + immigrant_num):
-            eliminate_from_dormancy_pool_num = self.dormancy_pool_max_size
+            eliminate_from_dormancy_pool_num = dormancy_num     # when full: dormancy_num = self.dormancy_pool_max_size
             survival_in_dormancy_pool_num = 0
             new_dormancy_num = self.dormancy_pool_max_size
             self.dormancy_pool = self.offspring_pool + random.sample(self.immigrant_pool, self.dormancy_pool_max_size-offspring_num)
@@ -708,8 +684,8 @@ class habitat():
             self.immigrant_pool = []
         
         elif (offspring_num + immigrant_num) <= self.dormancy_pool_max_size < (offspring_num + immigrant_num + dormancy_num):
-            eliminate_from_dormancy_pool_num = offspring_num + immigrant_num
-            survival_in_dormancy_pool_num = self.dormancy_pool_max_size - eliminate_from_dormancy_pool_num
+            eliminate_from_dormancy_pool_num = offspring_num + immigrant_num + dormancy_num - self.dormancy_pool_max_size   # when full: dormancy_num = self.dormancy_pool_max_size
+            survival_in_dormancy_pool_num = dormancy_num - eliminate_from_dormancy_pool_num                                 # when full: dormancy_num = self.dormancy_pool_max_size
             new_dormancy_num = offspring_num + immigrant_num
             self.dormancy_pool = self.offspring_pool + self.immigrant_pool + random.sample(self.dormancy_pool, survival_in_dormancy_pool_num)
             self.offspring_pool = []
@@ -722,14 +698,72 @@ class habitat():
             self.dormancy_pool += self.immigrant_pool + self.offspring_pool
             self.offspring_pool = []
             self.immigrant_pool = []
+
+        after_ls = self.offspring_pool + self.immigrant_pool + self.dormancy_pool
+        self._recycle_dropped(before_ls, after_ls)                   # NemoBackend Method
         return survival_in_dormancy_pool_num, eliminate_from_dormancy_pool_num, new_dormancy_num, len(self.dormancy_pool)
     
 # ******************** clearing up offspring_and_immigrant_pool when dormancy pool do not run *******************************************************************#
-    def hab_clear_up_offspring_and_immigrant_pool(self):
-        self.offspring_pool = []
-        self.immigrant_pool = []
-    
-    def hab_clear_up_offspring_marker_and_immigrant_marker_pool(self):
-        self.offspring_marker_pool = []
-        self.immigrant_marker_pool = []
+    def hab_clear_up_microsite_individuals(self):
+        ''' NemoBackend: recycle every individual in the microsites and reset the microsite bookkeeping (pools untouched)
+        RETURN: number recycled '''
+        dead_ls = [indi_obj for row in self.set['microsite_individuals'] for indi_obj in row if indi_obj is not None]
 
+        self.set['microsite_individuals'] = self._empty_microsite_grid()
+        self.empty_site_pos_ls = [(i, j) for i in range(self.length) for j in range(self.width)]
+        self.occupied_site_pos_ls = []
+        self.indi_num = 0
+        self.species_category = {}
+        self.asexual_parent_pos_ls = []
+        self.species_category_for_sexual_parents_pos = {}
+
+        for indi_obj in dead_ls:
+            indi_obj.recycle()                                                          # NemoBackend Methods
+        return len(dead_ls)
+
+    def hab_clear_up_offspring_pool(self):
+        ''' NemoBackend: recycle every ungerminated offspring, then empty offspring_pool
+        RETURN: number recycled '''
+        ungerminated_ls = self.offspring_pool
+        self.offspring_pool = []
+        for indi_obj in ungerminated_ls:
+            indi_obj.recycle()
+        return len(ungerminated_ls)
+
+    def hab_clear_up_immigrant_pool(self):
+        ''' NemoBackend: recycle every ungerminated immigrant, then empty immigrant_pool
+        RETURN: number recycled '''
+        ungerminated_ls = self.immigrant_pool
+        self.immigrant_pool = []
+        for indi_obj in ungerminated_ls:
+            indi_obj.recycle()
+        return len(ungerminated_ls)
+
+    def hab_clear_up_dormancy_pool(self):
+        ''' NemoBackend: recycle every dormant individual, then empty dormancy_pool -- teardown only, e.g. releasing a finished run's Nemo memory before the next run in the same process
+        (disturbance keeps the dormancy pool; never call it inside the dormancy processes, where _recycle_dropped already recycles)
+        RETURN: number recycled '''
+        dormant_ls = self.dormancy_pool
+        self.dormancy_pool = []
+        for indi_obj in dormant_ls:
+            indi_obj.recycle()
+        return len(dormant_ls)
+
+    def hab_clear_up_offspring_marker_pool(self):
+        ''' empty offspring_marker_pool (markers are tuples: nothing to recycle)
+        RETURN: number of markers cleared '''
+        num = len(self.offspring_marker_pool)
+        self.offspring_marker_pool = []
+        return num
+
+    def hab_clear_up_immigrant_marker_pool(self):
+        ''' empty immigrant_marker_pool (markers are tuples: nothing to recycle)
+        RETURN: number of markers cleared '''
+        num = len(self.immigrant_marker_pool)
+        self.immigrant_marker_pool = []
+        return num
+
+    def habitat_disturbance_process(self):
+        ''' NemoBackend: disturbance kills every individual in the microsites and in the offspring / immigrant pools (dormancy_pool survives); marker pools are emptied
+        RETURN: number of individuals recycled + number of markers cleared '''
+        return (self.hab_clear_up_microsite_individuals() + self.hab_clear_up_offspring_pool() + self.hab_clear_up_immigrant_pool() + self.hab_clear_up_offspring_marker_pool() + self.hab_clear_up_immigrant_marker_pool())
