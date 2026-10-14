@@ -475,8 +475,10 @@ def section_edges_known():
                              ('tuple mean_env_ls', habitat('h', 0, (0, 0), 2, ['env1', 'env2'], (0.2, 0.2), [0.025, 0.025], 2, 2), (F, [[0.2, 0.2]]))):
         try: hab.hab_initialize(*args); errs[label] = 'no error'
         except Exception as e: errs[label] = type(e).__name__
+        recycle_everything(hab)                                 # tuple mean is now copied into a list, so that initialize succeeds and mints founders
     assert sp.minted_num == sp.recycled_num
-    finding('info', 'hab_initialize finds the species by exact equality species_2_phenotype_ls.index(mean_env_ls) and names it "sp<k+1>": %s; no founder is minted on these errors. hab_reset/offset_environment_values change mean_env_ls in place, so hab_initialize after an environment change also raises (as in the original).' % errs)
+    assert errs['tuple mean_env_ls'] == 'no error'              # habitat.__init__ copies mean_env_ls into its own list
+    finding('info', 'hab_initialize finds the species by exact equality species_2_phenotype_ls.index(mean_env_ls) and names it "sp<k+1>": %s; no founder is minted on these errors. A tuple mean_env_ls now works: habitat.__init__ copies it into a list. hab_reset/offset_environment_values change mean_env_ls in place, so hab_initialize after an environment change also raises (as in the original).' % errs)
     h = make_hab(L=3)
     try: h.hab_dead_selection(0.1, 0.5, 'gaussian'); r = 'no error'
     except Exception as e: r = type(e).__name__

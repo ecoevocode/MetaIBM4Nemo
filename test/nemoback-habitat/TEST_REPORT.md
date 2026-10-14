@@ -1,9 +1,9 @@
 # habitat.py test report (NemoBackend, sexual)
 
-Generated 2026-10-11 14:45 by `test/nemoback-habitat/run_all.py`. Scope: `metaibm/habitat.py` (patch / metacommunity layers not tested; asex / mix only probed).
+Generated 2026-10-14 15:44 by `test/nemoback-habitat/run_all.py`. Scope: `metaibm/habitat.py` (patch / metacommunity layers not tested; asex / mix only probed).
 
 - python `3.11.17`, pynemo `2.4.1`, `macOS-15.7.3-arm64-arm-64bit`
-- habitat.py md5 `78d2812b276d055ff58b2c5e73792b63`; original reference = `git show HEAD:metaibm/habitat.py` (HEAD `baace34`)
+- habitat.py md5 `cc2c2001c092d149325b6d1f42e4d2a7`; original reference = `git show baace34:metaibm/habitat.py` (HEAD `c3711cd`)
 
 ## Smoke: PASS
 
@@ -29,7 +29,7 @@ Generated 2026-10-11 14:45 by `test/nemoback-habitat/run_all.py`. Scope: `metaib
 | script | covers | result | time |
 |---|---|---|---|
 | test_bookkeeping.py | pool / microsite bookkeeping vs original, dormancy branches, clear-up, sampling uniformity (fake individuals, no Nemo) | PASS | 6.0 s |
-| test_nemo.py | real Nemo individuals: reproduction | lifecycle | memory | edges_known (one section each) | PASS | 13.6 s |
+| test_nemo.py | real Nemo individuals: reproduction | lifecycle | memory | edges_known (one section each) | PASS | 13.7 s |
 
 ## Key numbers
 
@@ -62,11 +62,11 @@ PASSED
 ---- section lifecycle PASSED
 ==== section memory
 reference individuals unchanged after 4445 births / 4405 recycles; pointers + IDs unique; recycled individuals inert
-long run L=30 x 400 steps, 136319 births: RSS {50: 134.6, 200: 134.6, 399: 134.6} MB
+long run L=30 x 400 steps, 136319 births: RSS {50: 132.7, 200: 132.7, 399: 132.7} MB
 ---- section memory PASSED
 ==== section edges_known
 1 shapes 1x1 / 1x9 / 9x1 / 3x7 / 7x3 and an empty habitat: every function, invariants hold, empty -> all zero
-2 constructor defaults / positional K, global_index bounds {0: 'ok, getHome()=0', 65535: 'ok, getHome()=65535', 65536: 'TypeError', -1: 'TypeError'}, bad species inputs {'mean not in species table': 'ValueError', 'missing indfactory key': 'KeyError', 'tuple mean_env_ls': 'ValueError'}
+2 constructor defaults / positional K, global_index bounds {0: 'ok, getHome()=0', 65535: 'ok, getHome()=65535', 65536: 'TypeError', -1: 'TypeError'}, bad species inputs {'mean not in species table': 'ValueError', 'missing indfactory key': 'KeyError', 'tuple mean_env_ls': 'no error'}
 3 __str__, env helpers, survival_rate formula, pairwise empty / occupied helpers OK with Nemo individuals
 4 asex / mix probes: ['hab_asex_reproduce_mutate_with_num: TypeError', 'hab_asex_reproduce_mutate_into_offspring_pool: TypeError', 'hab_asexual_reprodece_germinate: TypeError', 'hab_mix_asex_reproduce_mutate_with_num: TypeError', 'hab_mix_sex_reproduce_mutate_with_num: TypeError', 'hab_mix_reproduce_mutate_into_offspring_pool: TypeError', 'hab_mixed_reproduce_germinate: TypeError', 'hab_asex_reproduce_calculation_into_offspring_marker_pool: returned 13', 'hab_mix_reproduce_calculation_into_offspring_marker_pool: returned 11']
 5 caller-contract violations recorded
@@ -75,46 +75,13 @@ PASSED
 ```
 </details>
 
-## Performance (record only, `--perf`)
-
-```
-{
- "per_step_s": {
-  "L=25": {
-   "dead_selection": 0.0027,
-   "reproduce": 0.001,
-   "germinate": 0.0002,
-   "clear_up": 0.0001
-  },
-  "L=50": {
-   "dead_selection": 0.0156,
-   "reproduce": 0.0036,
-   "germinate": 0.0017,
-   "clear_up": 0.0004
-  },
-  "L=100": {
-   "dead_selection": 0.1371,
-   "reproduce": 0.0157,
-   "germinate": 0.0227,
-   "clear_up": 0.0017
-  }
- },
- "germinate_s": {
-  "5000 candidates -> 2601 sites": 0.041,
-  "10000 candidates -> 5041 sites": 0.16,
-  "20000 candidates -> 10201 sites": 0.64,
-  "40000 candidates -> 20164 sites": 2.53
- }
-}
-```
-
 ## Findings / known behaviour (12)
 
 | severity | finding |
 |---|---|
 | info | sexual_birth_rate > 1: int(pairs*rate) > pairs -> ValueError from random.sample (one offspring per pair per call, as in the original); the old offspring_pool is already recycled, invariants hold. |
 | info | global_index is not validated by habitat.__init__; out of the unsigned-short range Nemo refuses it at the first make_founder: {65536: 'TypeError', -1: 'TypeError'} (nothing minted). |
-| info | hab_initialize finds the species by exact equality species_2_phenotype_ls.index(mean_env_ls) and names it "sp<k+1>": {'mean not in species table': 'ValueError', 'missing indfactory key': 'KeyError', 'tuple mean_env_ls': 'ValueError'}; no founder is minted on these errors. hab_reset/offset_environment_values change mean_env_ls in place, so hab_initialize after an environment change also raises (as in the original). |
+| info | hab_initialize finds the species by exact equality species_2_phenotype_ls.index(mean_env_ls) and names it "sp<k+1>": {'mean not in species table': 'ValueError', 'missing indfactory key': 'KeyError', 'tuple mean_env_ls': 'no error'}; no founder is minted on these errors. A tuple mean_env_ls now works: habitat.__init__ copies it into a list. hab_reset/offset_environment_values change mean_env_ls in place, so hab_initialize after an environment change also raises (as in the original). |
 | info | unknown dead-selection method string ("gaussian") -> no error from survival_rate (no validation; unchanged from the original). |
 | info | hab_sexual_pairwise_parents_ls() / _num() shuffle the position lists in self.species_category in place, so even a count consumes Python RNG (same as the original; bookkeeping stays consistent). |
 | info | asex / mix functions are not migrated: hab_asex_reproduce_mutate_with_num -> TypeError: cannot pickle 'swig_runtime_data5.SwigPyObject' object; hab_asex_reproduce_mutate_into_offspring_pool -> TypeError: cannot pickle 'swig_runtime_data5.SwigPyObject' object; hab_asexual_reprodece_germinate -> TypeError: cannot pickle 'swig_runtime_data5.SwigPyObject' object; hab_mix_asex_reproduce_mutate_with_num -> TypeError: cannot pickle 'swig_runtime_data5.SwigPyObject' object; hab_mix_sex_reproduce_mutate_with_num -> TypeError: cannot pickle 'swig_runtime_data5.SwigPyObject' object; hab_mix_reproduce_mutate_into_offspring_pool -> TypeError: cannot pickle 'swig_runtime_data5.SwigPyObject' object; hab_mixed_reproduce_germinate -> TypeError: cannot pickle 'swig_runtime_data5.SwigPyObject' object; hab_asex_reproduce_calculation_into_offspring_marker_pool -> returned 13; hab_mix_reproduce_calculation_into_offspring_marker_pool -> returned 11 |
@@ -180,7 +147,12 @@ PASSED
 
 ```
  M metaibm/habitat.py
-?? test/nemoback-habitat/
- metaibm/habitat.py | 282 ++++++++++++++++++++++++++++++-----------------------
- 1 file changed, 158 insertions(+), 124 deletions(-)
+ M metaibm/patch.py
+ M test/nemoback-habitat/common.py
+ M test/nemoback-habitat/run_all.py
+ M test/nemoback-habitat/test_nemo.py
+?? test/nemoback-patch/
+ metaibm/habitat.py |   4 +-
+ metaibm/patch.py   | 132 +++++++++++++++++++++++++++++++++++++++++------------
+ 2 files changed, 105 insertions(+), 31 deletions(-)
 ```

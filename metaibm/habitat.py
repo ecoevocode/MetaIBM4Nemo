@@ -26,8 +26,8 @@ class habitat():
         self.location = hab_location 
         self.num_env_types = num_env_types
         self.env_types_name = env_types_name
-        self.mean_env_ls = mean_env_ls
-        self.var_env_ls = var_env_ls
+        self.mean_env_ls = list(mean_env_ls)   # own copy: hab_reset_environment_values() writes it in place
+        self.var_env_ls = list(var_env_ls)     # own copy: callers often pass one shared list to every habitat
         self.length = length
         self.width = width
         self.size = length*width

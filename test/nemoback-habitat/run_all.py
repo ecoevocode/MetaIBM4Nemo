@@ -6,6 +6,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
 TESTS = [('test_bookkeeping.py', 'pool / microsite bookkeeping vs original, dormancy branches, clear-up, sampling uniformity (fake individuals, no Nemo)'),
          ('test_nemo.py', 'real Nemo individuals: reproduction | lifecycle | memory | edges_known (one section each)')]
+ORIGINAL_COMMIT = 'baace34'                                     # same as common.ORIGINAL_COMMIT: pre-NemoBackend habitat.py (c3711cd^)
 NOISE = ('setting random seed from input value', 'outputs: ', 'the microsite in the habitat is occupied.', 'the microsite in the habitat is empty.')
 
 
@@ -29,7 +30,7 @@ def coverage():
     ''' every habitat method -> number of test scripts that call it; in-scope methods (not asex / mix) must be called somewhere '''
     src = open(os.path.join(REPO, 'metaibm', 'habitat.py')).read()
     cls = [n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == 'habitat'][0]
-    orig = {n.name: ast.dump(n) for n in ast.walk(ast.parse(git('show', 'HEAD:metaibm/habitat.py'))) if isinstance(n, ast.FunctionDef)}
+    orig = {n.name: ast.dump(n) for n in ast.walk(ast.parse(git('show', ORIGINAL_COMMIT + ':metaibm/habitat.py'))) if isinstance(n, ast.FunctionDef)}
     texts = [open(p).read() for p in glob.glob(os.path.join(HERE, '*.py')) if not p.endswith('run_all.py')]
     via = {'__init__': 'constructor', '__str__': 'str(hab)', '_empty_microsite_grid': '__init__', 'get_microsite_env_val_ls': 'dead selection',
            'survival_rate': 'dead selection', 'hab_sexual_pairwise_parents_ls': '..._num()', '_recycle_dropped': 'dormancy processes', '_germinate_from_pools': 'the 3 germination wrappers'}
@@ -85,7 +86,7 @@ def main():
     except Exception: pv = '?'
     L = ['# habitat.py test report (NemoBackend, sexual)', '', 'Generated %s by `test/nemoback-habitat/run_all.py`. Scope: `metaibm/habitat.py` (patch / metacommunity layers not tested; asex / mix only probed).' % datetime.datetime.now().strftime('%Y-%m-%d %H:%M'), '',
          '- python `%s`, pynemo `%s`, `%s`' % (sys.version.split()[0], pv, platform.platform()),
-         '- habitat.py md5 `%s`; original reference = `git show HEAD:metaibm/habitat.py` (HEAD `%s`)' % (md5, git('rev-parse', '--short', 'HEAD')), '']
+         '- habitat.py md5 `%s`; original reference = `git show %s:metaibm/habitat.py` (HEAD `%s`)' % (md5, ORIGINAL_COMMIT, git('rev-parse', '--short', 'HEAD')), '']
     smoke = run('smoke.py'); sj = load('smoke')
     print('smoke.py %s %.1fs' % ('PASS' if smoke['rc'] == 0 else 'FAIL', smoke['s']))
     L += ['## Smoke: %s' % ('PASS' if smoke['rc'] == 0 else '**FAIL**'), '', '| step | return |', '|---|---|'] + ['| %s | `%s` |' % (s['step'], s['return']) for s in sj.get('steps', [])] + ['']

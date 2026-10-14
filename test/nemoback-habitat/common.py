@@ -11,7 +11,7 @@ from metaibm.indfactory import indfactory                       # noqa: E402
 
 NEMO_CACHE = tempfile.mkdtemp(prefix='nemo_cache_')
 POOLS = ('offspring_pool', 'immigrant_pool', 'dormancy_pool')
-ORIGINAL_COMMIT = 'HEAD'                                        # pre-NemoBackend habitat.py (the migration is the working-tree change)
+ORIGINAL_COMMIT = 'baace34'                                     # pre-NemoBackend habitat.py (c3711cd^; c3711cd committed the migration)
 FINDINGS = []
 
 
