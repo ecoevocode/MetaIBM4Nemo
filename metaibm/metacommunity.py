@@ -15,12 +15,12 @@ from .patch import patch
 
 class metacommunity():
     def __init__(self, metacommunity_name):
-        self.set = {}                                       # self.data_set={} # to be improved
+        self.set: dict[str, patch] = {}                     # {patch_name: patch}
         self.patch_num = 0
         #self.meta_map = nx.Graph()
         self.metacommunity_name = metacommunity_name
-        self.patch_id_ls = []                               # patch_id_ls is currently assumed to be aligned with patch.index. (in order) 0, 1, 2, ...., N
-        self.patch_id_2_index_dir = {}                      # Maps patch_id -> patch.index.
+        self.patch_id_ls: list[str] = []                    # for patch_idx to patch_id: a list of patch_name in orders of idx 0, 1, ..., N-1 
+        self.patch_id_2_index_dir: dict[str, int] = {}      # {patch_name: patch.index}
         self.pairwise_patch_distance_matrix = np.matrix([]) # Full-connected Network: Matrix row/column i is defined by patch.index == i, not by insertion order alone.
 
     def get_data(self):
@@ -188,9 +188,10 @@ class metacommunity():
         plt.clf()
         return 0
     
-    def meta_initialize(self, traits_num, pheno_names_ls, pheno_var_ls, geno_len_ls, reproduce_mode, species_2_phenotype_ls):
+    def meta_initialize(self, indfactories, species_2_phenotype_ls, reproduce_mode='sexual'):
+        ''' NemoBackend: indfactories = {species_id: indfactory} '''
         for patch_id, patch_object in self.set.items():
-            patch_object.patch_initialize(traits_num, pheno_names_ls, pheno_var_ls, geno_len_ls, reproduce_mode, species_2_phenotype_ls)
+            patch_object.patch_initialize(indfactories, species_2_phenotype_ls, reproduce_mode)   # NemoBackend Methods: indfactory.make_founder()
         log_info = '%s initialization done! \n'%(self.metacommunity_name)
         #print(log_info)
         return log_info
@@ -295,9 +296,10 @@ class metacommunity():
 
 # ********************************* dead selection in metacommunity ***********************************************
     def meta_dead_selection(self, base_dead_rate, fitness_wid, method):
+        ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_dead_selection(base_dead_rate, fitness_wid, method)
+            counter += patch_object.patch_dead_selection(base_dead_rate, fitness_wid, method)      # NemoBackend Methods: indfactory.recycle()
         indi_num = self.get_meta_individual_num()
         empty_sites_num = self.show_meta_empty_sites_num()
         log_info = '[Dead selection] in %s: there are %d individuals dead in selection; there are %d individuals in the %s; there are %d empty sites in the %s \n'%(self.metacommunity_name, counter, indi_num, self.metacommunity_name, empty_sites_num, self.metacommunity_name)
@@ -317,6 +319,7 @@ class metacommunity():
         return log_info
     
     def meta_mainland_sexual_birth_mutate_germinate(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
+        ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
             counter += patch_object.patch_sexual_birth_germinate(sexual_birth_rate, mutation_rate, pheno_var_ls)
@@ -339,26 +342,19 @@ class metacommunity():
         return log_info    
 #*******************************************************************************************************************#  
 #****************************************colonize_via_propagules_rains from mainland ********************************#  
-    def meta_colonize_from_propagules_rains(self, mainland_obj, propagules_rain_num, is_remove=False):
-        mainland_occupied_sites_ls = mainland_obj.meta_get_occupied_location_ls()
-        random.shuffle(mainland_occupied_sites_ls)
-        
-        int_propagules_rain_num, dem_propagules_rain_num = int(propagules_rain_num), propagules_rain_num - int(propagules_rain_num)
-        if dem_propagules_rain_num >= np.random.uniform(0,1,1)[0]:
-            int_propagules_rain_num += 1
-            propagules_rain_num = int_propagules_rain_num
-        else:
-            propagules_rain_num = int_propagules_rain_num
-        
-        propagules_rain_pos_ls = random.sample(mainland_occupied_sites_ls, propagules_rain_num)
-        meta_empty_pos_ls = self.get_meta_empty_sites_ls()
+    def meta_colonize_from_propagules_rains(self, mainland_obj:'metacommunity', propagules_rain_num, is_remove=True):
+        if not is_remove: raise NotImplementedError('is_remove=False (the propagule stays on the mainland, a copy colonizes) waits for pynemo Individual::operator=')
+        mainland_occupied_sites_ls = mainland_obj.meta_get_occupied_location_ls()                                                                          # returned type as [(patch_id, h_id, row_id, col_id), ... ]
+        propagules_rain_pos_ls = random.sample(mainland_occupied_sites_ls, int(propagules_rain_num + np.random.uniform(0,1,1)[0]))                         # sample + stochastic rounding by chances
+        meta_empty_pos_ls = self.get_meta_empty_sites_ls()                                                                                                 # returned type as [(patch_id, h_id, row_id, col_id), ... ]
         random.shuffle(meta_empty_pos_ls)
         counter = 0
         for propagules_rain_pos, meta_empty_pos in list(zip(propagules_rain_pos_ls, meta_empty_pos_ls)):
             propagules_patch_id, propagules_h_id, propagules_row_id, propagules_col_id =  propagules_rain_pos[0], propagules_rain_pos[1], propagules_rain_pos[2], propagules_rain_pos[3]
             patch_id, h_id, len_id, wid_id = meta_empty_pos[0], meta_empty_pos[1], meta_empty_pos[2], meta_empty_pos[3]
             indi_object = mainland_obj.set[propagules_patch_id].set[propagules_h_id].set['microsite_individuals'][propagules_row_id][propagules_col_id]
-            if is_remove: mainland_obj.set[propagules_patch_id].set[propagules_h_id].del_individual(len_id=propagules_row_id, wid_id=propagules_col_id)
+            if is_remove: mainland_obj.set[propagules_patch_id].set[propagules_h_id].del_individual(len_id=propagules_row_id, wid_id=propagules_col_id)    # just left; no Nemo's individual recycle()
+            else: pass # unreachable (guard above); TODO(copy_from): indi_object = a copy of indi_object, the original stays on the mainland; needs Individual::operator=
             self.set[patch_id].set[h_id].add_individual(indi_object = indi_object, len_id=len_id, wid_id=wid_id)
             #self.set[patch_id].set[h_id].immigrant_pool.append(indi_object)
             counter += 1
@@ -368,34 +364,27 @@ class metacommunity():
         #print(log_info)
         return log_info            
         
-    def pairwise_sexual_colonization_from_prpagules_rains(self, mainland_obj, propagules_rain_num, is_remove=False):
-        mainland_pairwise_occupied_sites_ls = mainland_obj.get_meta_pairwise_occupied_sites_ls()
-        random.shuffle(mainland_pairwise_occupied_sites_ls)
-
-        pairwise_propgules_num = propagules_rain_num/2
-        int_pairwise_propgules_num, dem_pairwise_propgules_num = int(pairwise_propgules_num), pairwise_propgules_num-int(pairwise_propgules_num)
-        if dem_pairwise_propgules_num >= np.random.uniform(0,1,1)[0]:
-            int_pairwise_propgules_num += 1
-            pairwise_propgules_num = int_pairwise_propgules_num
-        else:
-            pairwise_propgules_num = int_pairwise_propgules_num
-        
-        propagules_rain_pairwise_pos_ls = random.sample(mainland_pairwise_occupied_sites_ls, pairwise_propgules_num)
-        meta_pairwise_empty_sites_ls = self.get_meta_pairwise_empty_sites_ls()
+    def pairwise_sexual_colonization_from_prpagules_rains(self, mainland_obj:'metacommunity', propagules_rain_num, is_remove=True):
+        if not is_remove: raise NotImplementedError('is_remove=False (the propagules stay on the mainland, copies colonize) waits for pynemo Individual::operator=')
+        mainland_pairwise_occupied_sites_ls = mainland_obj.get_meta_pairwise_occupied_sites_ls()                                                                                       # returned type as [((patch_id, h_id, row_id, col_id), (patch_id, h_id, row_id, col_id)), ... ] -- (female_pos, male_pos)
+        propagules_rain_pairwise_pos_ls = random.sample(mainland_pairwise_occupied_sites_ls, int(propagules_rain_num/2 + np.random.uniform(0,1,1)[0]))                                 # sample + stochastic rounding: the fractional pair colonizes by chance
+        meta_pairwise_empty_sites_ls = self.get_meta_pairwise_empty_sites_ls()                                                                                                         # returned type as [((patch_id, h_id, row_id, col_id), (patch_id, h_id, row_id, col_id)), ... ] -- two empty sites in one habitat
         random.shuffle(meta_pairwise_empty_sites_ls)
         counter = 0
         for (female_obj_pos, male_obj_pos), (empty_site_1_pos, empty_site_2_pos) in list(zip(propagules_rain_pairwise_pos_ls, meta_pairwise_empty_sites_ls)):
             
             female_propagules_patch_id, female_propagules_h_id, female_propagules_row_id, female_propagules_col_id =  female_obj_pos[0], female_obj_pos[1], female_obj_pos[2], female_obj_pos[3]
             female_obj = mainland_obj.set[female_propagules_patch_id].set[female_propagules_h_id].set['microsite_individuals'][female_propagules_row_id][female_propagules_col_id]
-            if is_remove: mainland_obj.set[female_propagules_patch_id].set[female_propagules_h_id].del_individual(len_id=female_propagules_row_id, wid_id=female_propagules_col_id)
+            if is_remove: mainland_obj.set[female_propagules_patch_id].set[female_propagules_h_id].del_individual(len_id=female_propagules_row_id, wid_id=female_propagules_col_id)    # just left; no Nemo's individual recycle()
+            else: pass # unreachable (guard above); TODO(copy_from): female_obj = a copy of female_obj, the original stays on the mainland; needs Individual::operator=
             site_1_patch_id, site_1_h_id, site_1_len_id, site_1_wid_id = empty_site_1_pos[0], empty_site_1_pos[1], empty_site_1_pos[2], empty_site_1_pos[3]
             self.set[site_1_patch_id].set[site_1_h_id].add_individual(indi_object = female_obj, len_id=site_1_len_id, wid_id=site_1_wid_id)
             #self.set[site_1_patch_id].set[site_1_h_id].immigrant_pool.append(female_obj)
             
             male_propagules_patch_id, male_propagules_h_id, male_propagules_row_id, male_propagules_col_id =  male_obj_pos[0], male_obj_pos[1], male_obj_pos[2], male_obj_pos[3]
             male_obj = mainland_obj.set[male_propagules_patch_id].set[male_propagules_h_id].set['microsite_individuals'][male_propagules_row_id][male_propagules_col_id]
-            if is_remove: mainland_obj.set[male_propagules_patch_id].set[male_propagules_h_id].del_individual(len_id=male_propagules_row_id, wid_id=male_propagules_col_id)
+            if is_remove: mainland_obj.set[male_propagules_patch_id].set[male_propagules_h_id].del_individual(len_id=male_propagules_row_id, wid_id=male_propagules_col_id)            # just left; no Nemo's individual recycle()
+            else: pass # unreachable (guard above); TODO(copy_from): male_obj = a copy of male_obj, the original stays on the mainland; needs Individual::operator=
             site_2_patch_id, site_2_h_id, site_2_len_id, site_2_wid_id = empty_site_2_pos[0], empty_site_2_pos[1], empty_site_2_pos[2], empty_site_2_pos[3]
             self.set[site_2_patch_id].set[site_2_h_id].add_individual(indi_object = male_obj, len_id=site_2_len_id, wid_id=site_2_wid_id)
             #self.set[site_2_patch_id].set[site_2_h_id].immigrant_pool.append(male_obj)
@@ -417,6 +406,7 @@ class metacommunity():
         return log_info
         
     def meta_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate, mutation_rate, pheno_var_ls):  
+        ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
             counter += patch_object.patch_sex_reproduce_mutate_into_offspring_pool(sexual_birth_rate, mutation_rate, pheno_var_ls)
@@ -587,10 +577,11 @@ class metacommunity():
         emigrants_matrix = self.get_emigrants_matrix(total_disp_among_rate, method=method, **kwargs)
         return self.matrix_around(np.minimum(emigrants_matrix, immigrants_matrix))
 
-    def dispersal_among_patches_from_offspring_pool_and_dormancy_pool(self, total_disp_among_rate, method='uniform', is_remove=False, **kwargs):
-        ''' dispersal from patch_i to patch_j (directly into the microsites) '''
+    def dispersal_among_patches_from_offspring_pool_and_dormancy_pool(self, total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
+        ''' NemoBackend: dispersal from patch_i to patch_j (directly into the microsites) '''
+        if not is_remove: raise NotImplementedError('is_remove=False (sampling with replacement: the original stays in its source pool, a copy disperses) waits for pynemo Individual::operator=')
         if self.patch_num < 2:
-            log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse among patches \n'
+            log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse among patches \n'%(self.metacommunity_name)
             #print(log_info)
             return log_info
         dispersal_among_num_matrix = self.get_dispersal_among_num_matrix(total_disp_among_rate, method=method, **kwargs)
@@ -598,7 +589,7 @@ class metacommunity():
         for j in range(self.patch_num):
             patch_j_id = self.patch_id_ls[j]
             patch_j_object = self.set[patch_j_id]
-            patch_j_empty_site_ls = patch_j_object.get_patch_empty_sites_ls()
+            patch_j_empty_site_ls = patch_j_object.get_patch_empty_sites_ls()          # returned type as [(h_id, row_id, col_id), ... ]
             migrants_to_j_indi_object_ls = []
             
             for i in range(self.patch_num):
@@ -609,23 +600,28 @@ class metacommunity():
                 else:
                     migrants_i_j_num = int(dispersal_among_num_matrix[i, j])
                     if is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
-                    else: migrants_to_j_indi_object_ls += random.sample(patch_i_object.get_patch_offspring_and_dormancy_pool(), migrants_i_j_num)
+                    else: pass # unreachable (guard above); TODO(copy_from): migrants += copies of random.sample(offspring_pool + dormancy_pool, n), the originals stay in their source pools; needs Individual::operator=
                     
             random.shuffle(patch_j_empty_site_ls)
             random.shuffle(migrants_to_j_indi_object_ls)
             for (h_id, len_id, wid_id), migrants_object in list(zip(patch_j_empty_site_ls, migrants_to_j_indi_object_ls)):
                 self.set[patch_j_id].set[h_id].add_individual(indi_object = migrants_object, len_id=len_id, wid_id=wid_id)
                 counter += 1
+                migrants_to_j_indi_object_ls.remove(migrants_object)
+
+            for migrants_object in migrants_to_j_indi_object_ls:                      # no empty site left: already out of its source pool, dies
+                migrants_object.recycle()                                             # NemoBackend Methods: recycling individuals
         indi_num = self.get_meta_individual_num()
         empty_sites_num = self.show_meta_empty_sites_num()
         log_info = 'there are %d individuals disperse among patches; there are %d individuals in the metacommunity; there are %d empty sites in the metacommunity \n'%(counter, indi_num, empty_sites_num)
         #print(log_info)
         return log_info
     
-    def dispersal_aomng_patches_from_offspring_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', is_remove=False, **kwargs):
+    def dispersal_aomng_patches_from_offspring_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
         ''' exchange between offspring pools among patches into immigrant pool'''
+        if not is_remove: raise NotImplementedError('is_remove=False (sampling with replacement: the original stays in its source pool, a copy disperses) waits for pynemo Individual::operator=')
         if self.patch_num < 2:
-            log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse into habs_immigrant_pool among patches \n'
+            log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse into habs_immigrant_pool among patches \n'%(self.metacommunity_name)
             #print(log_info)
             return log_info
         offspring_dispersal_matrix = self.matrix_around(self.get_offspring_pool_num_matrix()*self.get_disp_among_rate_matrix(total_disp_among_rate, method=method, **kwargs))
@@ -643,7 +639,7 @@ class metacommunity():
                 else:
                     migrants_i_j_num = int(offspring_dispersal_matrix[i, j])
                     if is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num)
-                    else: migrants_to_j_indi_object_ls += random.sample(patch_i_object.get_patch_offspring_pool(), migrants_i_j_num)
+                    else: pass # unreachable (guard above); TODO(copy_from): migrants += copies of random.sample(offspring_pool, n), the originals stay in their source pools; needs Individual::operator=
                     
             random.shuffle(migrants_to_j_indi_object_ls)
             patch_j_object.migrants_to_patch_into_habs_immigrant_pool(migrants_to_j_indi_object_ls)
@@ -652,10 +648,10 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool(self, total_disp_among_rate, method='uniform', is_remove=False, **kwargs):
+    def dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool(self, total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
         ''' exchange between offspring marker pools among patches into immigrant marker pool '''
         if self.patch_num < 2:
-            log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse into habs_immigrant_marker_pool among patches \n'
+            log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse into habs_immigrant_marker_pool among patches \n'%(self.metacommunity_name)
             #print(log_info)
             return log_info
         
@@ -683,10 +679,11 @@ class metacommunity():
         #print(log_info)
         return log_info
 
-    def dispersal_among_patches_from_offsrping_pool_and_dormancy_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', is_remove=False, **kwargs):
+    def dispersal_among_patches_from_offsrping_pool_and_dormancy_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
         ''' exchange between offspring pools and dormancy among patches into immigrant pool'''
+        if not is_remove: raise NotImplementedError('is_remove=False (sampling with replacement: the original stays in its source pool, a copy disperses) waits for pynemo Individual::operator=')
         if self.patch_num < 2:
-            log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse into habs_immigrant_pool among patches \n'
+            log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse into habs_immigrant_pool among patches \n'%(self.metacommunity_name)
             #print(log_info)
             return log_info
         offspring_dormancy_dispersal_matrix = self.matrix_around(self.get_emigrants_matrix(total_disp_among_rate, method=method, **kwargs))
@@ -704,7 +701,7 @@ class metacommunity():
                 else:
                     migrants_i_j_num = int(offspring_dormancy_dispersal_matrix[i, j])
                     if is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
-                    else: migrants_to_j_indi_object_ls += random.sample(patch_i_object.get_patch_offspring_and_dormancy_pool(), migrants_i_j_num)
+                    else: pass # unreachable (guard above); TODO(copy_from): migrants += copies of random.sample(offspring_pool + dormancy_pool, n), the originals stay in their source pools; needs Individual::operator=
                     
             random.shuffle(migrants_to_j_indi_object_ls)
             patch_j_object.migrants_to_patch_into_habs_immigrant_pool(migrants_to_j_indi_object_ls)
@@ -714,7 +711,7 @@ class metacommunity():
         return log_info
 
 #******************************************* dispersal within patch process ************************************************
-    def meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool(self, disp_within_rate, is_remove=False):
+    def meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool(self, disp_within_rate, is_remove=True):
         ''' random dispersal within patch, offspring marker is the denotion of an dispering offspring to be born '''
         counter = 0
         for patch_id, patch_object in self.set.items():
@@ -723,7 +720,7 @@ class metacommunity():
         #print(log_info)
         return log_info
 
-    def meta_dispersal_within_patch_from_offspring_to_immigrant_pool(self, disp_within_rate, is_remove=False):
+    def meta_dispersal_within_patch_from_offspring_to_immigrant_pool(self, disp_within_rate, is_remove=True):
         ''' random dispersal within patch '''
         counter = 0
         for patch_id, patch_object in self.set.items():
@@ -732,7 +729,7 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def meta_dispersal_within_patch_from_offspring_and_dormancy_to_immigrant_pool(self, disp_within_rate, is_remove=False):
+    def meta_dispersal_within_patch_from_offspring_and_dormancy_to_immigrant_pool(self, disp_within_rate, is_remove=True):
         ''' random dispersal within patch '''
         counter = 0
         for patch_id, patch_object in self.set.items():
@@ -741,8 +738,8 @@ class metacommunity():
         #print(log_info)
         return log_info        
 
-    def meta_dispersal_within_patch_from_offspring_and_dormancy_pool(self, disp_within_rate, is_remove=False):
-        ''' random dispersal within patch to empty sites directly'''
+    def meta_dispersal_within_patch_from_offspring_and_dormancy_pool(self, disp_within_rate, is_remove=True):
+        ''' NemoBackend: random dispersal within patch to empty sites directly'''
         counter = 0
         for patch_id, patch_object in self.set.items():
             counter += patch_object.patch_dipersal_within_from_offspring_and_dormancy_pool(disp_within_rate, is_remove)
@@ -753,7 +750,7 @@ class metacommunity():
         #print(log_info)
         return log_info
 #************************************************ local germination *******************************************************************
-    def meta_local_germinate_from_offspring_and_dormancy_pool(self, is_remove=False):
+    def meta_local_germinate_from_offspring_and_dormancy_pool(self, is_remove=True):
         ''' germination individual randomly chosen from local habitst offspring pool + dormancy_pool '''
         counter = 0
         for patch_id, patch_object in self.set.items():
@@ -764,7 +761,7 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def meta_local_germinate_from_offspring_and_immigrant_pool(self, is_remove=False):
+    def meta_local_germinate_from_offspring_and_immigrant_pool(self, is_remove=True):
         ''' germination individual randomly chosen from local habitst offspring pool + immigrant_pool '''
         counter = 0
         for patch_id, patch_object in self.set.items():
@@ -775,7 +772,7 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def meta_local_germinate_from_offspring_immigrant_and_dormancy_pool(self, is_remove=False):
+    def meta_local_germinate_from_offspring_immigrant_and_dormancy_pool(self, is_remove=True):
         ''' germination individual randomly chosen from local habitst offspring pool + immigrant_pool + dormancy_pool '''
         counter = 0
         for patch_id, patch_object in self.set.items():
@@ -786,8 +783,8 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(self, mutation_rate, pheno_var_ls, is_remove=False):
-        ''' germination individual marker randomly chosen from local habitst offspring pool + immigrant_pool and then birth process according to the marker information '''
+    def meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(self, mutation_rate, pheno_var_ls, is_remove=True):
+        ''' NemoBackend: germination individual marker randomly chosen from local habitst offspring pool + immigrant_pool and then birth process according to the marker information '''
         counter = 0
         for patch_id, patch_object in self.set.items():
             for h_id, h_object in patch_object.set.items():
@@ -804,13 +801,16 @@ class metacommunity():
                     birth_h_object = self.set[birth_patch_id].set[birth_h_id]  # birth place h_object
                     
                     if reproduce_mode == 'asexual':
-                        indi_object = birth_h_object.hab_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]
+                        #indi_object = birth_h_object.hab_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]               # TODO(makeClone): restore when pynemo has makeClonedOffsprg
+                        raise NotImplementedError('offspring marker %r: asexual birth waits for pynemo IndFactory::makeClonedOffsprg' % (indi_marker,))
                     elif reproduce_mode == 'sexual':
-                        indi_object = birth_h_object.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]
+                        indi_object = birth_h_object.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]                 # NemoBackend Methods: indfactory.make_offspring()
                     elif reproduce_mode == 'mix_asexual':
-                        indi_object = birth_h_object.hab_mix_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]
+                        #indi_object = birth_h_object.hab_mix_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]           # TODO(makeClone): restore when pynemo has makeClonedOffsprg
+                        raise NotImplementedError('offspring marker %r: mixed (asexual) birth waits for pynemo IndFactory::makeClonedOffsprg' % (indi_marker,))
                     elif reproduce_mode == 'mix_sexual':
-                        indi_object = birth_h_object.hab_mix_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]
+                        #indi_object = birth_h_object.hab_mix_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]            # TODO(mixed): restore after habitat.hab_mix_sex_reproduce_mutate_with_num is migrated to make_offspring (sexual, no makeClone needed)
+                        raise NotImplementedError('offspring marker %r: mixed (sexual) birth waits for habitat.hab_mix_sex_reproduce_mutate_with_num to be migrated (make_offspring)' % (indi_marker,))
                     
                     h_object.add_individual(indi_object=indi_object, len_id=row_id, wid_id=col_id)
                     if is_remove: getattr(h_object, pool_label).remove(indi_marker)
@@ -823,6 +823,7 @@ class metacommunity():
         
 #************************************************* dormancy process in the metacommunity *********************************************************************
     def meta_dormancy_process_from_offspring_pool_to_dormancy_pool(self):
+        ''' NemoBackend '''
         survival_counter = 0
         eliminate_counter = 0
         new_dormancy_counter = 0
@@ -841,6 +842,7 @@ class metacommunity():
         return log_info_1 + log_info_2
     
     def meta_dormancy_process_from_offspring_pool_and_immigrant_pool(self):
+        ''' NemoBackend '''
         survival_counter = 0
         eliminate_counter = 0
         new_dormancy_counter = 0
@@ -857,18 +859,58 @@ class metacommunity():
         #print(log_info_1)
         #print(log_info_2)
         return log_info_1 + log_info_2
-    
-# ******************** clearing up offspring_and_immigrant_pool when dormancy pool do not run *******************************************************************#
-    def meta_clear_up_offspring_and_immigrant_pool(self):
+
+# ******************** clearing up microsites, offspring pool, immigrant pool, dormancy pool and marker pools ***************************************************#
+    def meta_clear_up_microsite_individuals(self):
+        ''' NemoBackend '''
+        counter = 0
         for patch_id, patch_object in self.set.items():
-            patch_object.patch_clear_up_offspring_and_immigrant_pool()
+            counter += patch_object.patch_clear_up_microsite_individuals()   # NemoBackend Methods: recycling individuals
+        return counter
+
+    def meta_clear_up_offspring_pool(self):
+        ''' NemoBackend '''
+        counter = 0
+        for patch_id, patch_object in self.set.items():
+            counter += patch_object.patch_clear_up_offspring_pool()          # NemoBackend Methods: recycling individuals
+        return counter
+
+    def meta_clear_up_immigrant_pool(self):
+        ''' NemoBackend '''
+        counter = 0
+        for patch_id, patch_object in self.set.items():
+            counter += patch_object.patch_clear_up_immigrant_pool()          # NemoBackend Methods: recycling individuals
+        return counter
+
+    def meta_clear_up_dormancy_pool(self):
+        ''' NemoBackend '''
+        counter = 0
+        for patch_id, patch_object in self.set.items():
+            counter += patch_object.patch_clear_up_dormancy_pool()           # NemoBackend Methods: recycling individuals
+        return counter
+
+    def meta_clear_up_offspring_marker_pool(self):
+        counter = 0
+        for patch_id, patch_object in self.set.items():
+            counter += patch_object.patch_clear_up_offspring_marker_pool()
+        return counter
+
+    def meta_clear_up_immigrant_marker_pool(self):
+        counter = 0
+        for patch_id, patch_object in self.set.items():
+            counter += patch_object.patch_clear_up_immigrant_marker_pool()
+        return counter
+
+    def meta_clear_up_offspring_and_immigrant_pool(self):
+        ''' NemoBackend '''
+        return self.meta_clear_up_offspring_pool() + self.meta_clear_up_immigrant_pool()   # NemoBackend Methods: recycling individuals
     
     def meta_clear_up_offspring_marker_and_immigrant_marker_pool(self):
-        for patch_id, patch_object in self.set.items():
-            patch_object.patch_clear_up_offspring_marker_and_immigrant_marker_pool()
+        return self.meta_clear_up_offspring_marker_pool() + self.meta_clear_up_immigrant_marker_pool()
     
 #************************************************** disturbance process in the metacommunity **************************************************************************
     def meta_disturbance_process_in_patches(self, patch_dist_rate):
+        ''' NemoBackend '''
         patch_dist_occur_ls = []
         for patch_id, patch_object in self.set.items():
             if np.random.uniform(0,1,1)[0] < patch_dist_rate:
@@ -881,6 +923,7 @@ class metacommunity():
         return log_info
  
     def meta_disturbance_process_in_habitat(self, hab_dist_rate):
+        ''' NemoBackend '''
         habitat_dist_occur_ls = []
         for patch_id, patch_object in self.set.items():
             for h_id, h_object in patch_object.set.items():
