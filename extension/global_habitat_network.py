@@ -3,18 +3,21 @@
 import numpy as np
 import random
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING: from metaibm import patch, metacommunity
 
 def _init_global_habitat_network_fields(self):
-    self.global_habitat_id_ls = []                           # element: (patch_id, habitat_id) 
-    self.global_habitat_id_2_index_dir = {}                  # {(patch_id, habitat_id): global_habitat_index}; row/col index for global_habitat_distance_matrix
+    self.global_habitat_id_ls = []                           # list of (patch_id, habitat_id) in add_patch x add_habitat order; row/col order of the network matrices
+    self.global_habitat_id_2_index_dir = {}                  # {(patch_id, habitat_id): global_habitat_index}; cache of translating id to habitat_object.global_index
     self.global_habitat_distance_matrix = np.matrix([])      # Full-connected Network: element: distance between pairwise habitats at metacommunity scales
 
 
-def global_habitat_id_idx_registry(self, patch_object):
+def global_habitat_network_registry(self, patch_object:'patch'):
     patch_id = patch_object.name
     for h_id, h_object in patch_object.set.items():
         self.global_habitat_id_ls.append((patch_id, h_id))
-        self.global_habitat_id_2_index_dir[(patch_id, h_id)] = len(self.global_habitat_id_ls) - 1
+        self.global_habitat_id_2_index_dir[(patch_id, h_id)] = h_object.global_index
+    self.update_global_habitat_distance_matrix()
     return 0
 
 
@@ -32,32 +35,6 @@ def update_global_habitat_distance_matrix(self):
             h_j_object = self.set[patch_j_id].set[h_j_id]
             xj, yj = h_j_object.location
             dist_matrix[i, j] = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
-
-    self.global_habitat_distance_matrix = np.matrix(dist_matrix)
-    return self.global_habitat_distance_matrix
-
-
-def incremental_update_global_habitat_distance_matrix(self):
-    new_hab_num = len(self.global_habitat_id_ls)
-    old_hab_num = self.global_habitat_distance_matrix.shape[0]
-
-    if self.global_habitat_distance_matrix.size == 0:
-        return self.update_global_habitat_distance_matrix()
-
-    dist_matrix = np.zeros((new_hab_num, new_hab_num), dtype=float)
-    dist_matrix[0:old_hab_num, 0:old_hab_num] = self.global_habitat_distance_matrix
-
-    for i in range(old_hab_num, new_hab_num):
-        patch_i_id, h_i_id = self.global_habitat_id_ls[i]
-        h_i_object = self.set[patch_i_id].set[h_i_id]
-        xi, yi = h_i_object.location
-        for j in range(0, new_hab_num):
-            patch_j_id, h_j_id = self.global_habitat_id_ls[j]
-            h_j_object = self.set[patch_j_id].set[h_j_id]
-            xj, yj = h_j_object.location
-            dij = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
-            dist_matrix[i, j] = dij
-            dist_matrix[j, i] = dij
 
     self.global_habitat_distance_matrix = np.matrix(dist_matrix)
     return self.global_habitat_distance_matrix
@@ -136,11 +113,11 @@ def get_global_habitat_network_disp_among_num_matrix(self, total_disp_among_rate
     global_hab_net_immigrants_matrix = self.get_global_habitat_network_immigrants_matrix(total_disp_among_rate, method=method, **kwargs)
     return self.matrix_around(np.minimum(global_hab_net_emigrants_matrix, global_hab_net_immigrants_matrix))
 
-def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', **kwargs):
+def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_immigrant_pool(self:'metacommunity', total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
     ''' dispersal from habitat_i offspring_pool to habitat_j immigrant_pool in the global habitat network '''
-    if self.patch_num < 2:
-        log_info = '[Dispersal among patches in global habitat network] in %s: patch_num < 2, there are 0 individuals disperse into immigrant_pool among habitats \n' % self.metacommunity_name
-        return log_info
+
+    if not is_remove: raise NotImplementedError('is_remove=False (sampling with replacement: the original stays in its source pool, a copy disperses) waits for pynemo Individual::operator=')
+    if self.patch_num < 2: return '[Dispersal among patches in global habitat network] in %s: patch_num < 2, there are 0 individuals disperse into immigrant_pool among habitats \n' % self.metacommunity_name
         
     global_hab_net_offspring_dispersal_matrix = self.matrix_around(self.get_global_habitat_network_offspring_pool_num_matrix() * self.global_habitat_dispersal_among_rate_matrix(total_disp_among_rate, method=method, **kwargs))
     counter = 0
@@ -154,7 +131,8 @@ def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_imm
                 
             migrants_i_j_num = int(global_hab_net_offspring_dispersal_matrix[i, j])
             h_i_object = self.set[patch_i_id].set[h_i_id]
-            migrants_to_j_indi_object_ls += random.sample(h_i_object.offspring_pool, migrants_i_j_num)
+            if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num)
+            else: pass  # unreachable (guard above); TODO(copy_from): migrants += copies of random.sample(offspring_pool, n), the originals stay in their source pools; needs Individual::operator=
 
         random.shuffle(migrants_to_j_indi_object_ls)
         h_j_object.immigrant_pool += migrants_to_j_indi_object_ls
@@ -163,11 +141,10 @@ def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_imm
     log_info = '[Dispersal among patches in global habitat network] in %s: there are %d individuals disperse into immigrant_pool among patches in global-habitat-network; there are %d individuals in the immigrant pools in the metacommunity \n' % (self.metacommunity_name, counter, self.meta_immigrant_pool_individual_num())
     return log_info
 
-def dispersal_among_patches_in_global_habitat_network_from_offspring_marker_pool_to_immigrant_marker_pool(self, total_disp_among_rate, method='uniform', **kwargs):
+def dispersal_among_patches_in_global_habitat_network_from_offspring_marker_pool_to_immigrant_marker_pool(self:'metacommunity', total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
     ''' dispersal from habitat_i offspring_marker_pool to habitat_j immigrant_marker_pool in the global habitat network '''
-    if self.patch_num < 2:
-        log_info = '[Dispersal among patches in global habitat network] in %s: patch_num < 2, there are 0 offspring markers disperse into immigrant_marker_pool among habitats \n' % self.metacommunity_name
-        return log_info
+
+    if self.patch_num < 2: return '[Dispersal among patches in global habitat network] in %s: patch_num < 2, there are 0 offspring markers disperse into immigrant_marker_pool among habitats \n' % self.metacommunity_name
     
     global_hab_net_offspring_marker_dispersal_matrix = self.matrix_around(self.get_global_habitat_network_offspring_marker_pool_num_matrix() * self.global_habitat_dispersal_among_rate_matrix(total_disp_among_rate, method=method, **kwargs))
     counter = 0
@@ -181,7 +158,8 @@ def dispersal_among_patches_in_global_habitat_network_from_offspring_marker_pool
 
             migrants_i_j_num = int(global_hab_net_offspring_marker_dispersal_matrix[i, j])
             h_i_object = self.set[patch_i_id].set[h_i_id]
-            migrants_to_j_offspring_marker_ls += random.sample(h_i_object.offspring_marker_pool, migrants_i_j_num)
+            if is_remove: migrants_to_j_offspring_marker_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_marker_pool',))
+            else: migrants_to_j_offspring_marker_ls += random.sample(h_i_object.offspring_marker_pool, migrants_i_j_num)
 
         random.shuffle(migrants_to_j_offspring_marker_ls)
         h_j_object.immigrant_marker_pool += migrants_to_j_offspring_marker_ls
@@ -201,9 +179,8 @@ def install_global_habitat_network_methods(cls):
         _init_global_habitat_network_fields(self)
     cls.__init__ = new_init
 
-    cls.global_habitat_id_idx_registry = global_habitat_id_idx_registry
+    cls.global_habitat_network_registry = global_habitat_network_registry
     cls.update_global_habitat_distance_matrix = update_global_habitat_distance_matrix
-    cls.incremental_update_global_habitat_distance_matrix = incremental_update_global_habitat_distance_matrix
     cls.get_global_habitat_network_dormancy_pool_num_matrix = get_global_habitat_network_dormancy_pool_num_matrix
     cls.get_global_habitat_network_offspring_pool_num_matrix = get_global_habitat_network_offspring_pool_num_matrix
     cls.get_global_habitat_network_offspring_marker_pool_num_matrix = get_global_habitat_network_offspring_marker_pool_num_matrix

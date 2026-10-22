@@ -25,7 +25,7 @@ install_global_habitat_network_methods(metacommunity)
 
 ## Methods
 
-### `global_habitat_id_idx_registry`
+### `global_habitat_network_registry`
 
 **Parameters:**
 
@@ -38,7 +38,7 @@ install_global_habitat_network_methods(metacommunity)
 
 **Description:**
 
-Registers all habitats in `patch_object` into the global habitat network. For each habitat in `patch_object.set`, appends `(patch_id, habitat_id)` to `global_habitat_id_ls` and records its index in `global_habitat_id_2_index_dir`. Must be called before updating the distance matrix.
+Registers all habitats in `patch_object` into the global habitat network, then rebuilds the distance matrix. For each habitat in `patch_object.set`, appends `(patch_id, habitat_id)` to `global_habitat_id_ls` (its position there is the habitat's row/column in the network matrices) and records the habitat's `global_index` (Nemo homepatch; recorded as given, not assigned or checked for uniqueness) in `global_habitat_id_2_index_dir`. Finally calls `update_global_habitat_distance_matrix`. Called by `metacommunity.add_patch`; habitats added to a patch after `add_patch` are not registered.
 
 ---
 

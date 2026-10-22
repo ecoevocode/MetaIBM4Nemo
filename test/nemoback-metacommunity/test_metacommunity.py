@@ -118,7 +118,7 @@ def bookkeeping_main():
     # ================================================================ 1. R1: every is_remove default is True
     defaults = {}
     for name, fn in vars(metacommunity).items():
-        if inspect.isfunction(fn) and 'is_remove' in inspect.signature(fn).parameters:
+        if inspect.isfunction(fn) and fn.__module__ != 'extension.global_habitat_network' and 'is_remove' in inspect.signature(fn).parameters:   # extension methods are tested in test/nemoback-extension
             defaults[name] = inspect.signature(fn).parameters['is_remove'].default
     odefaults = {n: next((ast.literal_eval(d) for a, d in zip(f.args.args[len(f.args.args) - len(f.args.defaults):], f.args.defaults) if a.arg == 'is_remove'), None) for n, f in OFN.items() if any(a.arg == 'is_remove' for a in f.args.args)}
     assert defaults and all(v is True for v in defaults.values()), {k: v for k, v in defaults.items() if v is not True}

@@ -53,9 +53,7 @@ class metacommunity():
         self.patch_id_2_index_dir[patch_name] = patch_object.index       # add patch in order of their patch.index, 0, 1, 2, ...., N
         self.update_disp_current_matrix()                                # If a patch with a larger index is added too early, this can raise IndexError.
         
-        self.global_habitat_id_idx_registry(patch_object)                # global_habitat index in a ls, index for habitat-network matrix
-        self.update_global_habitat_distance_matrix()                     # calculate global habitats distance matrix
-        #self.incremental_update_global_habitat_distance_matrix()
+        self.global_habitat_network_registry(patch_object)               # register attributes for global-habitat-network
 
     def reshape_habitat_data_in_patch(self, df, hab_num_x_axis_in_patch, hab_num_y_axis_in_patch, hab_y_len, hab_x_len, mask_loc=None):
         ''' reshape habitat_data in the a coorderation order for plotting'''

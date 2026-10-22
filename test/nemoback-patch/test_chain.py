@@ -276,9 +276,8 @@ rows = scan()
 for r in rows: print('4 %-34s %-58s %-72s %s' % r)
 removed = {r[2] for r in rows if r[3].startswith('REMOVED')}
 changed = {r[2] for r in rows if r[3].startswith('SIGNATURE')}
-assert removed == {'patch_clear_up_offspring_and_immigrant_pool', 'patch_clear_up_offspring_marker_and_immigrant_marker_pool'}, removed
-assert changed == {'patch_initialize'}, changed
-finding('known', 'metaibm/metacommunity.py (next migration round) still calls the removed patch_clear_up_offspring_and_immigrant_pool / patch_clear_up_offspring_marker_and_immigrant_marker_pool and patch_initialize with the old 6-argument signature: %s.' % '; '.join('%s %s' % (r[0], r[2]) for r in rows if r[3].startswith(('REMOVED', 'SIGNATURE'))))
+assert removed == set(), removed                                   # metacommunity.py is migrated: no call to a removed patch API left
+assert changed == set(), changed                                   # ... and no call with an old signature
 f_rm = [r for r in rows if 'NotImplementedError' in r[3]]
 if f_rm: finding('known', 'metacommunity meta_dispersal_within_patch_* / meta_local_germinate_* default is_remove=False and pass it through, so with their defaults they now raise NotImplementedError (patch / habitat default is True): %s.' % ', '.join('%s %s' % (r[0], r[1]) for r in f_rm))
 f_gi = [r for r in rows if 'global_index' in r[3]]
