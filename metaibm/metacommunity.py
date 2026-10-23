@@ -453,20 +453,14 @@ class metacommunity():
         return log_info
     
 # ****************************** disperal among patches process *************************************************************************
-    def matrix_around(self, matrix):   
-        ''' 元素的小数部分，按照概率四舍五入 '''
-        for i in range(matrix.shape[0]):
-            for j in range(matrix.shape[1]):
-                if np.isnan(matrix[i, j]) == False:
-                    integer = int(matrix[i,j])
-                    demacial = matrix[i,j] - integer
-                    if np.random.uniform(0,1,1)[0] <= demacial:
-                        integer += 1
-                    else:
-                        pass
-                else:
-                    integer = 0
-                matrix[i, j] = integer
+    def matrix_around(self, matrix):
+        ''' Stochastic Rounding: fractional parts as changes (per-row: systematic sampling & sum kept); NaN -> 0 '''
+        a = np.where(np.isnan(matrix), 0.0, np.asarray(matrix, dtype=float))
+        base = np.floor(a); frac = a - base
+        c  = np.round(np.cumsum(frac, axis=1), 9)
+        c0 = np.hstack([np.zeros((a.shape[0], 1)), c[:, :-1]])
+        u  = 1.0 - np.random.uniform(0, 1, (a.shape[0], 1))
+        matrix[:, :] = base + np.floor(c - u + 1) - np.floor(c0 - u + 1)
         return matrix
 
     def dispersal_kernel_strength(self, d_ij, method='uniform', **kwargs):
