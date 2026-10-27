@@ -198,7 +198,9 @@ class patch():
   
 ##********************* for patch in mainland only and do not contains dormant bank *******************************####
     def patch_asexual_birth_germinate(self, asexual_birth_rate, mutation_rate, pheno_var_ls):
-        ''' birth into empty site directly without considering the competition between local offspring and immigrant offspring '''
+        ''' NemoBackend: asexual birth directly into empty microsites in every habitat of the patch, without competition between local offspring and immigrants
+        INPUT: asexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        RETURN: number germinated '''
         counter = 0
         for h_id, h_object in self.set.items():
             counter += h_object.hab_asexual_reprodece_germinate(asexual_birth_rate, mutation_rate, pheno_var_ls)
@@ -214,7 +216,9 @@ class patch():
         return counter
     
     def patch_mixed_birth_germinate(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
-        ''' birth into empty site directly without considering the competition between local offspring and immigrant offspring '''
+        ''' NemoBackend: mixed birth (asexual + sexual) directly into empty microsites in every habitat of the patch
+        INPUT: asexual_birth_rate, sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        RETURN: number germinated '''
         counter = 0
         for h_id, h_object in self.set.items():
             counter += h_object.hab_mixed_reproduce_germinate(asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls)
@@ -245,21 +249,21 @@ class patch():
 #********************************************************************************************************************#
 #************************ all hab in patch reproduce into offspring pool ********************************************#
     def patch_asex_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, mutation_rate, pheno_var_ls):
+        ''' NemoBackend: asexual birth into offspring_pool in every habitat of the patch (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored) '''
         counter = 0
         for h_id, h_object in self.set.items():
             counter += h_object.hab_asex_reproduce_mutate_into_offspring_pool(asexual_birth_rate, mutation_rate, pheno_var_ls)
         return counter
     
     def patch_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
-        ''' NemoBackend: sexual birth into offspring_pool in every habitat of the patch
-        INPUT: sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
-        RETURN: number of offspring in the offspring pools '''
+        ''' NemoBackend: sexual birth into offspring_pool in every habitat of the patch (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored) '''
         counter = 0
         for h_id, h_object in self.set.items():
             counter += h_object.hab_sex_reproduce_mutate_into_offspring_pool(sexual_birth_rate, mutation_rate, pheno_var_ls)
         return counter
     
     def patch_mix_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
+        ''' NemoBackend: mixed birth (asexual + sexual) into offspring_pool in every habitat of the patch (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored) '''
         counter = 0
         for h_id, h_object in self.set.items():
             counter += h_object.hab_mix_reproduce_mutate_into_offspring_pool(asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls)
@@ -345,9 +349,8 @@ class patch():
 
     def patch_dipersal_within_from_offspring_and_dormancy_pool(self, disp_within_rate, is_remove=True):
         ''' NemoBackend: dispersal within the patch -- individuals from habitat i's offspring + dormancy pools germinate directly into empty microsites of habitat j (i != j); migrants left without an empty site are recycled
-        INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays and a copy disperses -- reserved, raises NotImplementedError (TODO(makeClone))
+        INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays in its source pool and a copy disperses (individual.make_copy())
         RETURN: number germinated (after dispersal) '''
-        if not is_remove: raise NotImplementedError('is_remove=False (sampling with replacement: the original stays in its source pool, a copy disperses) waits for pynemo IndFactory::makeClonedOffsprg')
         disp_within_num_matrix = self.get_dispersal_within_num_matrix(disp_within_rate)
         counter = 0
         for j in range(self.hab_num):
@@ -364,7 +367,7 @@ class patch():
                 else:
                     migrants_i_j_num = int(disp_within_num_matrix[i, j])
                     if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
-                    else: pass  # unreachable (guard above); TODO(makeClone): migrants += clones of random.sample(offspring_pool + dormancy_pool, n)
+                    else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(h_i_object.offspring_pool + h_i_object.dormancy_pool, migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pools
                     
             random.shuffle(h_j_empty_site_ls)
             random.shuffle(migrants_to_j_indi_object_ls)
@@ -373,7 +376,7 @@ class patch():
                 counter += 1
                 migrants_to_j_indi_object_ls.remove(migrants_object)
 
-            for migrants_object in migrants_to_j_indi_object_ls:                      # no empty site left: already out of its source pool (or makeClone from its source pool), dies
+            for migrants_object in migrants_to_j_indi_object_ls:                      # no empty site left: already out of its source pool (is_remove=False: a copy, the original stays in its source pool), dies
                 migrants_object.recycle()                                             # NemoBackend Methods: recycling individuals
         return counter
     
@@ -401,10 +404,9 @@ class patch():
         return counter
     
     def patch_dispersal_within_from_offspring_pool_to_immigrant_pool(self, disp_within_rate, is_remove=True):
-        ''' dispersal within the patch: offspring from habitat i's offspring_pool move into habitat j's immigrant_pool (i != j)
-        INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays and a copy disperses -- reserved, raises NotImplementedError (TODO(makeClone))
+        ''' NemoBackend: dispersal within the patch: offspring from habitat i's offspring_pool move into habitat j's immigrant_pool (i != j)
+        INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays in its source pool and a copy disperses (individual.make_copy())
         RETURN: number of migrants '''
-        if not is_remove: raise NotImplementedError('is_remove=False (sampling with replacement: the original stays in its source pool, a copy disperses) waits for pynemo IndFactory::makeClonedOffsprg')
         offspring_dispersal_matrix = self.patch_matrix_around(self.get_patch_habs_offspring_num_matrix()*self.get_patch_dispersal_within_rate_matrix(disp_within_rate))
         counter = 0
         for j in range(self.hab_num):
@@ -420,7 +422,7 @@ class patch():
                 else:
                     migrants_i_j_num = int(offspring_dispersal_matrix[i, j])
                     if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num)
-                    else: pass # unreachable (guard above); TODO(makeClone): migrants += clones of random.sample(offspring_pool, n)
+                    else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(h_i_object.offspring_pool, migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pool
                     
             random.shuffle(migrants_to_j_indi_object_ls)
             h_j_object.immigrant_pool += migrants_to_j_indi_object_ls
@@ -428,11 +430,10 @@ class patch():
         return counter
     
     def patch_dispersal_within_from_offspring_pool_and_dormancy_pool_to_immigrant_pool(self, disp_within_rate, is_remove=True):
-        ''' dispersal within the patch (m_within): individuals from habitat i's offspring + dormancy pools move into habitat j's immigrant_pool (i != j)
-        INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays and a copy disperses -- reserved, raises NotImplementedError (TODO(makeClone))
+        ''' NemoBackend: dispersal within the patch (m_within): individuals from habitat i's offspring + dormancy pools move into habitat j's immigrant_pool (i != j)
+        INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays in its source pool and a copy disperses (individual.make_copy())
         RETURN: number of migrants '''
-        if not is_remove: raise NotImplementedError('is_remove=False (sampling with replacement: the original stays in its source pool, a copy disperses) waits for pynemo IndFactory::makeClonedOffsprg')
-        offspring_and_dormancy_dispersal_matrix =  self.patch_matrix_around(self.get_habs_emigrants_matrix(disp_within_rate))
+        offspring_and_dormancy_dispersal_matrix = self.patch_matrix_around(self.get_habs_emigrants_matrix(disp_within_rate))
         counter = 0
         for j in range(self.hab_num):
             h_j_id = self.hab_id_ls[j]
@@ -447,27 +448,32 @@ class patch():
                 else:
                     migrants_i_j_num = int(offspring_and_dormancy_dispersal_matrix[i, j])
                     if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
-                    else: pass # unreachable (guard above); TODO(makeClone): migrants += clones of random.sample(offspring_pool + dormancy_pool, n)
+                    else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(h_i_object.offspring_pool + h_i_object.dormancy_pool, migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pools
                     
             random.shuffle(migrants_to_j_indi_object_ls)
             h_j_object.immigrant_pool += migrants_to_j_indi_object_ls
             counter += len(migrants_to_j_indi_object_ls)
-        return counter      
+        return counter  
         
 #******************** local germination in all habitat in the patch *****************************#
     def patch_local_germinate_from_offspring_and_dormancy_pool(self, is_remove=True):
+        ''' NemoBackend: germinate individuals from offspring_pool + dormancy_pool into empty microsites in every habitat of the patch
+        INPUT: is_remove = True (default): germinated individuals leave their pool / False: a copy germinates, the original stays in its pool
+        RETURN: number germinated '''
         counter = 0
         for h_id, h_object in self.set.items():
             counter += h_object.hab_local_germinate_from_offspring_and_dormancy_pool(is_remove)
         return counter
     
     def patch_local_germinate_from_offspring_and_immigrant_pool(self, is_remove=True):
+        ''' NemoBackend: same as patch_local_germinate_from_offspring_and_dormancy_pool(), from offspring_pool + immigrant_pool '''
         counter = 0
         for h_id, h_object in self.set.items():
             counter += h_object.hab_local_germinate_from_offspring_and_immigrant_pool(is_remove)
         return counter
             
     def patch_local_germinate_from_offspring_immigrant_and_dormancy_pool(self, is_remove=True):
+        ''' NemoBackend: same as patch_local_germinate_from_offspring_and_dormancy_pool(), from offspring_pool + immigrant_pool + dormancy_pool '''
         counter = 0
         for h_id, h_object in self.set.items():
             counter += h_object.hab_local_germinate_from_offspring_immigrant_and_dormancy_pool(is_remove)

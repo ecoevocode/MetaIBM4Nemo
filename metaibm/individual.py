@@ -100,7 +100,15 @@ class individual():
         trait = self.get_trait('quant')
         return [trait.get_phenotype(i) for i in range(self.traits_num)]
 
-    ##***************** life recycle ******************
+    ##***************** life cycle events ******************
+    def make_copy(self):
+        ''' RETURN: an exact copy of this individual with a new ID -- calling Nemo's Individual::operator= (pynemo Individual.make_copy) '''
+        self._require_alive()
+        nemo_copy_indi_obj = self.indfactory._nemo_indfactory.getNewIndividual().make_copy(self.nemo_indi_obj)  # Individual::operator=
+        copy_indi_obj = self.indfactory._wrap_nemo_individual(nemo_copy_indi_obj)                               # minted_num += 1
+        copy_indi_obj.age = self.age
+        return copy_indi_obj
+
     def recycle(self):
         ''' return the nemo_indi_obj to the recycling-pool of its indfactory '''
         self._require_alive()

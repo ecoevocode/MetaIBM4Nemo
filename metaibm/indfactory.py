@@ -117,6 +117,13 @@ class indfactory():
         nemo_indi_obj.create_first_gen()
         return self._wrap_nemo_individual(nemo_indi_obj)
 
+    def make_clone(self, mother_indi_obj, home_habitat=0):
+        ''' one asexual offspring: a copy of the mother that only mutates (no inheritance, no recombination) -- Nemo's makeClonedOffsprg (= LCE_Breed_base::breed_cloning)
+            INPUT:  mother_indi_obj = individual of this species, either gender (the clone keeps it); home_habitat = int 0-65535 -- habitat.global_index where the clone is born (as Nemo's homepatch)
+            RETURN: individual -- new ID, age 0, mother_id = the mother's ID, father_id = 0, pedigree class 4; alleles = the mother's + Nemo mutations; phenotype recomputed by Nemo '''
+        self._require_own(mother_indi_obj)
+        return self._wrap_nemo_individual(self._nemo_indfactory.makeClonedOffsprg(mother_indi_obj.nemo_indi_obj, home_habitat))
+
     def make_offspring(self, mother_indi_obj, father_indi_obj, gender, home_habitat=0):
         ''' one sexual offspring: inheritance, recombination and mutation all done in C++ by Nemo's makeOffsprg() -- replaces MetaIBM's deepcopy + recombine + mutate
             INPUT:  mother_indi_obj, father_indi_obj = individual of this species; gender = 'female' or 'male' -- the offspring's; home_habitat = int 0-65535 -- habitat.global_index where the offspring is born (as Nemo's homepatch)

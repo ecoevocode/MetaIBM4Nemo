@@ -114,9 +114,8 @@ def get_global_habitat_network_disp_among_num_matrix(self, total_disp_among_rate
     return self.matrix_around(np.minimum(global_hab_net_emigrants_matrix, global_hab_net_immigrants_matrix))
 
 def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_immigrant_pool(self:'metacommunity', total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
-    ''' dispersal from habitat_i offspring_pool to habitat_j immigrant_pool in the global habitat network '''
+    ''' NemoBackend: dispersal from habitat_i offspring_pool to habitat_j immigrant_pool in the global habitat network '''
 
-    if not is_remove: raise NotImplementedError('is_remove=False (sampling with replacement: the original stays in its source pool, a copy disperses) waits for pynemo Individual::operator=')
     if self.patch_num < 2: return '[Dispersal among patches in global habitat network] in %s: patch_num < 2, there are 0 individuals disperse into immigrant_pool among habitats \n' % self.metacommunity_name
         
     global_hab_net_offspring_dispersal_matrix = self.matrix_around(self.get_global_habitat_network_offspring_pool_num_matrix() * self.global_habitat_dispersal_among_rate_matrix(total_disp_among_rate, method=method, **kwargs))
@@ -132,7 +131,7 @@ def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_imm
             migrants_i_j_num = int(global_hab_net_offspring_dispersal_matrix[i, j])
             h_i_object = self.set[patch_i_id].set[h_i_id]
             if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num)
-            else: pass  # unreachable (guard above); TODO(copy_from): migrants += copies of random.sample(offspring_pool, n), the originals stay in their source pools; needs Individual::operator=
+            else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(h_i_object.offspring_pool, migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pool
 
         random.shuffle(migrants_to_j_indi_object_ls)
         h_j_object.immigrant_pool += migrants_to_j_indi_object_ls
