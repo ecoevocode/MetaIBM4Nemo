@@ -111,8 +111,8 @@ p.patch_initialize(F, TABLE)                                  # occupied -> resi
 D = ('patch_dispersal_within_from_offspring_pool_to_immigrant_pool', 'patch_dispersal_within_from_offspring_pool_and_dormancy_pool_to_immigrant_pool', 'patch_dipersal_within_from_offspring_and_dormancy_pool')
 for t in range(30):
     p.patch_dead_selection(0.2, 0.5, 'niche_gaussian')
-    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
-    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)        # leftovers recycled
+    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)
+    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)        # leftovers recycled
     p.patch_sex_reproduce_calculation_into_offspring_marker_pool(0.7)
     p.patch_dispersal_within_from_offspring_marker_pool_to_immigrant_marker_pool(0.5, t % 2 == 0)
     getattr(p, D[t % 3])(0.6)
@@ -120,12 +120,12 @@ for t in range(30):
     (p.patch_dormancy_process_from_offspring_pool_to_dormancy_pool if t % 2 else p.patch_dormancy_process_from_offspring_pool_and_immigrant_pool)()
     p.patch_clear_up_offspring_pool(); p.patch_clear_up_immigrant_pool(); p.patch_clear_up_offspring_marker_pool(); p.patch_clear_up_immigrant_marker_pool()
     if t % 7 == 6: p.patch_disturbance_process()
-    p.patch_dead_selection(0.3, 0.5, 'niche_gaussian'); p.patch_sexual_birth_germinate(1.0, None, None)
+    p.patch_dead_selection(0.3, 0.5, 'niche_gaussian'); p.patch_sexual_birth_germinate(1.0)
     q.migrants_to_patch_into_habs_immigrant_pool(p.sample_offspring_without_replacement(3, ('offspring_pool', 'dormancy_pool')))
     q.migrants_marker_to_patch_into_habs_immigrant_marker_pool([('p1', 'h0', 'sexual')] * 3)
     check_invariants([p, q], FS, 'chain t=%d' % t)
 # forced extras: OD->sites with more migrants than empty sites (individual.recycle reached from the patch method itself)
-p.patch_initialize(F, TABLE); p.patch_dead_selection(0.05, 5.0, 'niche_gaussian'); p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)   # few empty sites, many offspring
+p.patch_initialize(F, TABLE); p.patch_dead_selection(0.05, 5.0, 'niche_gaussian'); p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)   # few empty sites, many offspring
 force_within_matrix(p, [[0, 50, 50], [50, 0, 50], [50, 50, 0]])
 r0 = sum(f.recycled_num for f in FS)
 p.patch_dipersal_within_from_offspring_and_dormancy_pool(0.5)
@@ -135,9 +135,9 @@ assert extras > 0
 check_invariants([p, q], FS, 'forced extras')
 # explicit states for the recycle branches of dormancy B / clear-ups
 for _ in range(3):
-    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None); p.patch_dormancy_process_from_offspring_pool_and_immigrant_pool()   # O + D > K: old dormants dropped
+    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0); p.patch_dormancy_process_from_offspring_pool_and_immigrant_pool()   # O + D > K: old dormants dropped
 assert sum(len(h.dormancy_pool) for h in habs(p)) > 0
-p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None); assert p.patch_clear_up_offspring_pool() > 0
+p.patch_sex_reproduce_mutate_into_offspring_pool(1.0); assert p.patch_clear_up_offspring_pool() > 0
 p.migrants_to_patch_into_habs_immigrant_pool([F['sp1'].make_founder('male', 30) for _ in range(6)]); assert p.patch_clear_up_immigrant_pool() == 6
 assert p.patch_clear_up_dormancy_pool() > 0
 check_invariants([p, q], FS, 'explicit recycle branches')

@@ -197,31 +197,31 @@ class patch():
         return 0
   
 ##********************* for patch in mainland only and do not contains dormant bank *******************************####
-    def patch_asexual_birth_germinate(self, asexual_birth_rate, mutation_rate, pheno_var_ls):
+    def patch_asexual_birth_germinate(self, asexual_birth_rate):
         ''' NemoBackend: asexual birth directly into empty microsites in every habitat of the patch, without competition between local offspring and immigrants
-        INPUT: asexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: asexual_birth_rate
         RETURN: number germinated '''
         counter = 0
         for h_id, h_object in self.set.items():
-            counter += h_object.hab_asexual_reprodece_germinate(asexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += h_object.hab_asexual_reprodece_germinate(asexual_birth_rate)
         return counter
     
-    def patch_sexual_birth_germinate(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def patch_sexual_birth_germinate(self, sexual_birth_rate):
         ''' NemoBackend: sexual birth directly into empty microsites in every habitat of the patch, without competition between local offspring and immigrants
-        INPUT: sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: sexual_birth_rate
         RETURN: number germinated '''
         counter = 0
         for h_id, h_object in self.set.items():
-            counter += h_object.hab_sexual_reprodece_germinate(sexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += h_object.hab_sexual_reprodece_germinate(sexual_birth_rate)
         return counter
     
-    def patch_mixed_birth_germinate(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def patch_mixed_birth_germinate(self, asexual_birth_rate, sexual_birth_rate):
         ''' NemoBackend: mixed birth (asexual + sexual) directly into empty microsites in every habitat of the patch
-        INPUT: asexual_birth_rate, sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: asexual_birth_rate, sexual_birth_rate
         RETURN: number germinated '''
         counter = 0
         for h_id, h_object in self.set.items():
-            counter += h_object.hab_mixed_reproduce_germinate(asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += h_object.hab_mixed_reproduce_germinate(asexual_birth_rate, sexual_birth_rate)
         return counter
     
 #** calculating the offspring num and generating offspring markers but do not reproduce actually until local germination process afterward after dispersal process.*
@@ -248,25 +248,25 @@ class patch():
         
 #********************************************************************************************************************#
 #************************ all hab in patch reproduce into offspring pool ********************************************#
-    def patch_asex_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, mutation_rate, pheno_var_ls):
-        ''' NemoBackend: asexual birth into offspring_pool in every habitat of the patch (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored) '''
+    def patch_asex_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate):
+        ''' NemoBackend: asexual birth into offspring_pool in every habitat of the patch '''
         counter = 0
         for h_id, h_object in self.set.items():
-            counter += h_object.hab_asex_reproduce_mutate_into_offspring_pool(asexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += h_object.hab_asex_reproduce_mutate_into_offspring_pool(asexual_birth_rate)
         return counter
     
-    def patch_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
-        ''' NemoBackend: sexual birth into offspring_pool in every habitat of the patch (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored) '''
+    def patch_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate):
+        ''' NemoBackend: sexual birth into offspring_pool in every habitat of the patch '''
         counter = 0
         for h_id, h_object in self.set.items():
-            counter += h_object.hab_sex_reproduce_mutate_into_offspring_pool(sexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += h_object.hab_sex_reproduce_mutate_into_offspring_pool(sexual_birth_rate)
         return counter
     
-    def patch_mix_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
-        ''' NemoBackend: mixed birth (asexual + sexual) into offspring_pool in every habitat of the patch (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored) '''
+    def patch_mix_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, sexual_birth_rate):
+        ''' NemoBackend: mixed birth (asexual + sexual) into offspring_pool in every habitat of the patch '''
         counter = 0
         for h_id, h_object in self.set.items():
-            counter += h_object.hab_mix_reproduce_mutate_into_offspring_pool(asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += h_object.hab_mix_reproduce_mutate_into_offspring_pool(asexual_birth_rate, sexual_birth_rate)
         return counter
 #****************************************** dispersal among patch into habs offspring pool *******************************************************
     def split(self, ls, n):

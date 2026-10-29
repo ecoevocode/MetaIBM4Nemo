@@ -61,7 +61,7 @@ def perf():
         tm = {}
         for _ in range(3):
             for name, fn in (('dead_selection', lambda: h.hab_dead_selection(0.1, 0.5, 'niche_gaussian')),
-                             ('reproduce', lambda: h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)),
+                             ('reproduce', lambda: h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)),
                              ('germinate', h.hab_local_germinate_from_offspring_and_immigrant_pool),
                              ('clear_up', lambda: h.hab_clear_up_offspring_pool() + h.hab_clear_up_immigrant_pool())):
                 t = time.perf_counter(); fn(); tm[name] = tm.get(name, 0) + (time.perf_counter() - t) / 3

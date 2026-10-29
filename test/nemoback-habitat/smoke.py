@@ -20,21 +20,21 @@ def main():
 
     step('hab_initialize', lambda: hab.hab_initialize({'sp1': sp}, [[0.2, 0.2]]))
     step('hab_dead_selection', lambda: hab.hab_dead_selection(0.1, 0.5, 'niche_gaussian'))
-    step('hab_sex_reproduce_mutate_into_offspring_pool', lambda: hab.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None))
+    step('hab_sex_reproduce_mutate_into_offspring_pool', lambda: hab.hab_sex_reproduce_mutate_into_offspring_pool(1.0))
     assert hab.offspring_pool[0].nemo_indi_obj.getHome() == 3
     step('hab_local_germinate_from_offspring_and_immigrant_pool', lambda: hab.hab_local_germinate_from_offspring_and_immigrant_pool())
     step('hab_clear_up_offspring_pool + immigrant_pool', lambda: hab.hab_clear_up_offspring_pool() + hab.hab_clear_up_immigrant_pool())
     hab.hab_dead_selection(0.1, 0.5, 'niche_gaussian')
-    step('reproduce', lambda: hab.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None))
+    step('reproduce', lambda: hab.hab_sex_reproduce_mutate_into_offspring_pool(1.0))
     step('hab_local_germinate_from_offspring_immigrant_and_dormancy_pool', lambda: hab.hab_local_germinate_from_offspring_immigrant_and_dormancy_pool())
     step('hab_dormancy_process_from_offspring_pool_to_dormancy_pool', hab.hab_dormancy_process_from_offspring_pool_to_dormancy_pool)
-    step('reproduce', lambda: hab.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None))
+    step('reproduce', lambda: hab.hab_sex_reproduce_mutate_into_offspring_pool(1.0))
     step('hab_dormancy_process_from_offspring_pool_and_immigrant_pool', hab.hab_dormancy_process_from_offspring_pool_and_immigrant_pool)
     minted = sp.minted_num
     step('hab_sex_reproduce_calculation_into_offspring_marker_pool', lambda: hab.hab_sex_reproduce_calculation_into_offspring_marker_pool('patch1', 1.0))
     assert sp.minted_num == minted
     hab.hab_dead_selection(0.1, 0.5, 'niche_gaussian')
-    step('hab_sexual_reprodece_germinate', lambda: hab.hab_sexual_reprodece_germinate(1.0, None, None))
+    step('hab_sexual_reprodece_germinate', lambda: hab.hab_sexual_reprodece_germinate(1.0))
     dorm = list(hab.dormancy_pool)
     step('habitat_disturbance_process', hab.habitat_disturbance_process)
     assert hab.indi_num == 0 and len(hab.dormancy_pool) == len(dorm) and all(a is b for a, b in zip(hab.dormancy_pool, dorm))

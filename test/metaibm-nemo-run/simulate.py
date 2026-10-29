@@ -275,11 +275,11 @@ def sloss_main(rep, patch_num, is_heterogeneity, reproduce_mode, total_disp_amon
         write_in_logger_info = 'time_step=%d \n' % time_step
         ''' dead selection process in mainland and metacommunity '''
         write_in_logger_info += mon('mainland.meta_dead_selection', mainland.meta_dead_selection, base_dead_rate, fitness_wid, method='niche_gaussian')
-        write_in_logger_info += mon('mainland.meta_mainland_sexual_birth_mutate_germinate', mainland.meta_mainland_sexual_birth_mutate_germinate, sexual_birth_rate, mutation_rate, pheno_var_ls)
+        write_in_logger_info += mon('mainland.meta_mainland_sexual_birth_mutate_germinate', mainland.meta_mainland_sexual_birth_mutate_germinate, sexual_birth_rate)
         write_in_logger_info += mon('meta_dead_selection', meta_obj.meta_dead_selection, base_dead_rate, fitness_wid, method='niche_gaussian')
         if schedule == 'pool':                                   # the experiment's commented individual-pool lines, sexual versions
             ''' reproduction process '''
-            write_in_logger_info += mon('meta_sex_reproduce_mutate_into_offspring_pool', meta_obj.meta_sex_reproduce_mutate_into_offspring_pool, sexual_birth_rate, mutation_rate, pheno_var_ls)
+            write_in_logger_info += mon('meta_sex_reproduce_mutate_into_offspring_pool', meta_obj.meta_sex_reproduce_mutate_into_offspring_pool, sexual_birth_rate)
             ''' dispersal processes '''
             write_in_logger_info += mon('pairwise_sexual_colonization_from_prpagules_rains', meta_obj.pairwise_sexual_colonization_from_prpagules_rains, mainland, propagules_rain_num)
             write_in_logger_info += mon('meta_dispersal_within_patch_from_offspring_to_immigrant_pool', meta_obj.meta_dispersal_within_patch_from_offspring_to_immigrant_pool, disp_within_rate)
@@ -309,7 +309,7 @@ def sloss_main(rep, patch_num, is_heterogeneity, reproduce_mode, total_disp_amon
         else:
             write_in_logger_info += mon('dispersal_among_patches_in_global_habitat_network_from_offspring_marker_pool_to_immigrant_marker_pool', meta_obj.dispersal_among_patches_in_global_habitat_network_from_offspring_marker_pool_to_immigrant_marker_pool, total_disp_among_rate, method='exponential', rho=2)
         ''' germination processes '''
-        write_in_logger_info += mon('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', meta_obj.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool, mutation_rate, pheno_var_ls)
+        write_in_logger_info += mon('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', meta_obj.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool)
         ''' disturbance process '''
         write_in_logger_info += mon('meta_disturbance_process_in_patches', meta_obj.meta_disturbance_process_in_patches, patch_dist_rate)
         ''' eliminating offspring and immigrant (marker) pool '''
@@ -421,9 +421,9 @@ def model_main(reproduce_mode, patch_dist_rate, mutation_rate, environment_mean_
     for time_step in range(all_time_step):
         write_in_logger_info = 'time_step=%d \n' % time_step
         write_in_logger_info += mon('mainland1.meta_dead_selection', mainland1.meta_dead_selection, base_dead_rate, fitness_wid, method='niche_gaussian')
-        write_in_logger_info += mon('mainland1.meta_mainland_sexual_birth_mutate_germinate', mainland1.meta_mainland_sexual_birth_mutate_germinate, sexual_birth_rate, mutation_rate, pheno_var_ls)
+        write_in_logger_info += mon('mainland1.meta_mainland_sexual_birth_mutate_germinate', mainland1.meta_mainland_sexual_birth_mutate_germinate, sexual_birth_rate)
         write_in_logger_info += mon('mainland2.meta_dead_selection', mainland2.meta_dead_selection, base_dead_rate, fitness_wid, method='niche_gaussian')
-        write_in_logger_info += mon('mainland2.meta_mainland_sexual_birth_mutate_germinate', mainland2.meta_mainland_sexual_birth_mutate_germinate, sexual_birth_rate, mutation_rate, pheno_var_ls)
+        write_in_logger_info += mon('mainland2.meta_mainland_sexual_birth_mutate_germinate', mainland2.meta_mainland_sexual_birth_mutate_germinate, sexual_birth_rate)
         write_in_logger_info += mon('meta_dead_selection', meta_object.meta_dead_selection, base_dead_rate, fitness_wid, method='niche_gaussian')
         write_in_logger_info += mon('meta_sex_reproduce_calculation_with_offspring_marker_pool', meta_object.meta_sex_reproduce_calculation_with_offspring_marker_pool, sexual_birth_rate)
         if (time_step + 1) % change_time_step == 0 and start_change_time <= time_step <= end_change_time:
@@ -431,7 +431,7 @@ def model_main(reproduce_mode, patch_dist_rate, mutation_rate, environment_mean_
         write_in_logger_info += mon('meta_colonize_from_propagules_rains', meta_object.meta_colonize_from_propagules_rains, mainland1, propagules_rain_num)
         write_in_logger_info += mon('meta_colonize_from_propagules_rains', meta_object.meta_colonize_from_propagules_rains, mainland2, propagules_rain_num)
         write_in_logger_info += mon('dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool', meta_object.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool, dispersal_amomg_rate)
-        write_in_logger_info += mon('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', meta_object.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool, mutation_rate, pheno_var_ls)
+        write_in_logger_info += mon('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', meta_object.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool)
         write_in_logger_info += mon('meta_disturbance_process_in_patches', meta_object.meta_disturbance_process_in_patches, patch_dist_rate)
         mon('meta_clear_up_offspring_marker_and_immigrant_marker_pool', meta_object.meta_clear_up_offspring_marker_and_immigrant_marker_pool)
         mon('(logging)', write_logger, write_in_logger_info, is_logging, logger_file)
@@ -546,13 +546,13 @@ def grfe_main(rep, patch_num, is_same_heterogeneity, reproduce_mode, total_disp_
     for time_step in range(all_time_step):
         write_in_logger_info = 'time_step=%d \n' % time_step
         write_in_logger_info += mon('mainland.meta_dead_selection', mainland.meta_dead_selection, base_dead_rate, fitness_wid, method='niche_gaussian')
-        write_in_logger_info += mon('mainland.meta_mainland_sexual_birth_mutate_germinate', mainland.meta_mainland_sexual_birth_mutate_germinate, sexual_birth_rate, mutation_rate, pheno_var_ls)
+        write_in_logger_info += mon('mainland.meta_mainland_sexual_birth_mutate_germinate', mainland.meta_mainland_sexual_birth_mutate_germinate, sexual_birth_rate)
         write_in_logger_info += mon('meta_dead_selection', meta_obj.meta_dead_selection, base_dead_rate, fitness_wid, method='niche_gaussian')
         write_in_logger_info += mon('meta_sex_reproduce_calculation_with_offspring_marker_pool', meta_obj.meta_sex_reproduce_calculation_with_offspring_marker_pool, sexual_birth_rate)
         write_in_logger_info += mon('pairwise_sexual_colonization_from_prpagules_rains', meta_obj.pairwise_sexual_colonization_from_prpagules_rains, mainland, propagules_rain_num)
         write_in_logger_info += mon('meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool', meta_obj.meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool, disp_within_rate)
         write_in_logger_info += mon('dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool', meta_obj.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool, total_disp_among_rate, method='exponential', rho=0.2)   # the experiment's commented alternative: global-habitat-network not tested for now
-        write_in_logger_info += mon('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', meta_obj.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool, mutation_rate, pheno_var_ls)
+        write_in_logger_info += mon('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', meta_obj.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool)
         write_in_logger_info += mon('meta_disturbance_process_in_patches', meta_obj.meta_disturbance_process_in_patches, patch_dist_rate)
         mon('meta_clear_up_offspring_marker_and_immigrant_marker_pool', meta_obj.meta_clear_up_offspring_marker_and_immigrant_marker_pool)
         mon('(logging)', write_logger, write_in_logger_info, is_logging, logger_file)
@@ -598,13 +598,13 @@ def disturbance_main(out, steps, dist, seed):
     events, recol, t0 = [], {}, time.time()
     for t in range(steps):
         mainland.meta_dead_selection(0.1, 0.5, method='niche_gaussian')
-        mainland.meta_mainland_sexual_birth_mutate_germinate(1, 0.0001, (0.025, 0.025))
+        mainland.meta_mainland_sexual_birth_mutate_germinate(1)
         meta.meta_dead_selection(0.1, 0.5, method='niche_gaussian')
         meta.meta_sex_reproduce_calculation_with_offspring_marker_pool(1)
         meta.pairwise_sexual_colonization_from_prpagules_rains(mainland, 6.4)
         meta.meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool(0.1)
         meta.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool(0.1, method='exponential', rho=2)
-        meta.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(0.0001, (0.025, 0.025))
+        meta.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool()
         # ---- instrumented disturbance
         before = {pn: disturbance_snapshot(p) for pn, p in meta.set.items()}
         objs = {pn: [x for h in p.set.values() for x in mc_common.micro(h) + h.offspring_pool + h.immigrant_pool] for pn, p in meta.set.items()}

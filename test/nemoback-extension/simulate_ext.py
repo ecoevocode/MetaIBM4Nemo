@@ -197,9 +197,9 @@ def step_ops(group, ml, meta, sc, variant, dist):
     elif group == 'mPatch': net = ('patch_marker', lambda: getattr(meta, PATCH_MARK)(among, method='exponential', rho=rho))
     if group == 'pool':
         return [('mainland.meta_dead_selection', lambda: ml.meta_dead_selection(0.1, 0.5, method='niche_gaussian')),
-                ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1, 0.0001, (0.025, 0.025))),
+                ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1)),
                 ('meta_dead_selection', lambda: meta.meta_dead_selection(0.1, 0.5, method='niche_gaussian')),
-                ('meta_sex_reproduce_mutate_into_offspring_pool', lambda: meta.meta_sex_reproduce_mutate_into_offspring_pool(1, 0.0001, (0.025, 0.025))),
+                ('meta_sex_reproduce_mutate_into_offspring_pool', lambda: meta.meta_sex_reproduce_mutate_into_offspring_pool(1)),
                 ('pairwise_sexual_colonization_from_prpagules_rains', lambda: meta.pairwise_sexual_colonization_from_prpagules_rains(ml, 6400 * 0.001)),
                 ('meta_dispersal_within_patch_from_offspring_to_immigrant_pool', lambda: meta.meta_dispersal_within_patch_from_offspring_to_immigrant_pool(within)),
                 ('network_offspring', lambda: getattr(meta, OFF)(among, method='exponential', rho=rho)),
@@ -208,13 +208,13 @@ def step_ops(group, ml, meta, sc, variant, dist):
                 ('meta_disturbance_process_in_patches', lambda: meta.meta_disturbance_process_in_patches(dist)),
                 ('meta_clear_up_offspring_and_immigrant_pool', lambda: meta.meta_clear_up_offspring_and_immigrant_pool())]
     return [('mainland.meta_dead_selection', lambda: ml.meta_dead_selection(0.1, 0.5, method='niche_gaussian')),
-            ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1, 0.0001, (0.025, 0.025))),
+            ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1)),
             ('meta_dead_selection', lambda: meta.meta_dead_selection(0.1, 0.5, method='niche_gaussian')),
             ('meta_sex_reproduce_calculation_with_offspring_marker_pool', lambda: meta.meta_sex_reproduce_calculation_with_offspring_marker_pool(1)),
             ('pairwise_sexual_colonization_from_prpagules_rains', lambda: meta.pairwise_sexual_colonization_from_prpagules_rains(ml, 6400 * 0.001)),
             ('meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool', lambda: meta.meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool(within)),
             net,
-            ('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', lambda: meta.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(0.0001, (0.025, 0.025))),
+            ('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', lambda: meta.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool()),
             ('meta_disturbance_process_in_patches', lambda: meta.meta_disturbance_process_in_patches(dist)),
             ('meta_clear_up_offspring_marker_and_immigrant_marker_pool', lambda: meta.meta_clear_up_offspring_marker_and_immigrant_marker_pool())]
 

@@ -192,12 +192,13 @@ def run(impl, case, steps, save_every=10, seed=0):
     m_among, m_within = (0.0001, None) if case == 'model' else (0.01, 0.1) if case.startswith('grfe') else (P['m_among'], P['m_within'])
     rain = 10 if case == 'model' else P['rain']
     dead, wid, birth, mut, dist = P['dead'], P['wid'], P['birth'], P['mut'], P['dist']
+    bargs = () if impl == 'nemo' else (mut, var)              # mutation_rate / pheno_var_ls: pure MetaIBM only (removed from the NemoBackend birth signatures)
     rows, t0 = [], time.perf_counter()
     for t in range(steps):
         ts = time.perf_counter()
         for k, ml in enumerate(mainlands):
             T('mainland dead selection', ml.meta_dead_selection, dead, wid, method='niche_gaussian')
-            T('mainland sexual birth', ml.meta_mainland_sexual_birth_mutate_germinate, birth, mut, var)
+            T('mainland sexual birth', ml.meta_mainland_sexual_birth_mutate_germinate, birth, *bargs)
         T('islands dead selection', isl.meta_dead_selection, dead, wid, method='niche_gaussian')
         if not pool:
             T('marker calculation', isl.meta_sex_reproduce_calculation_with_offspring_marker_pool, birth)
@@ -208,11 +209,11 @@ def run(impl, case, steps, save_every=10, seed=0):
                 T('colonization', isl.pairwise_sexual_colonization_from_prpagules_rains, mainlands[0], rain, **rm)
             if m_within is not None: T('marker dispersal within', isl.meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool, m_within, **rm)
             T('marker dispersal among', isl.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool, m_among, **among, **rm)
-            T('germinate + birth from markers', isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool, mut, var, **rm)
+            T('germinate + birth from markers', isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool, *bargs, **rm)
             T('disturbance', isl.meta_disturbance_process_in_patches, dist)
             T('marker clear-up', isl.meta_clear_up_offspring_marker_and_immigrant_marker_pool)
         else:
-            T('reproduce into offspring pool', isl.meta_sex_reproduce_mutate_into_offspring_pool, birth, mut, var)
+            T('reproduce into offspring pool', isl.meta_sex_reproduce_mutate_into_offspring_pool, birth, *bargs)
             T('colonization', isl.pairwise_sexual_colonization_from_prpagules_rains, mainlands[0], rain, **rm)
             T('dispersal within -> immigrant pool', isl.meta_dispersal_within_patch_from_offspring_to_immigrant_pool, m_within, **rm)
             T('dispersal among -> immigrant pool', isl.dispersal_aomng_patches_from_offspring_pool_to_immigrant_pool, m_among, method='exponential', rho=2, **rm)

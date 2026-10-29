@@ -202,7 +202,7 @@ def bookkeeping_main():
             before = {(h, mk) for h in all_habs(isl) for q in MARKER_POOLS for mk in getattr(h, q)}
             mk_n, n0, m0, empt = pool_n(isl, MARKER_POOLS), indi_n(isl), minted(F), [len(h.empty_site_pos_ls) for h in all_habs(isl)]
             exp = sum(min(e, len(h.offspring_marker_pool) + len(h.immigrant_marker_pool)) for e, h in zip(empt, all_habs(isl)))
-            isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None, mode)
+            isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(mode)
             born = indi_n(isl) - n0
             assert born == minted(F) - m0 == exp, ('birth', mode, born, exp)
             assert pool_n(isl, MARKER_POOLS) == (mk_n - born if mode else mk_n), ('birth markers', mode)
@@ -475,13 +475,13 @@ EQUIV = {   # key: (function, world, call(meta, mainland, seed, is_original))
     'germ O+D': ('meta_local_germinate_from_offspring_and_dormancy_pool', 'pools', germ('meta_local_germinate_from_offspring_and_dormancy_pool')),
     'germ O+I': ('meta_local_germinate_from_offspring_and_immigrant_pool', 'pools', germ('meta_local_germinate_from_offspring_and_immigrant_pool')),
     'germ O+I+D': ('meta_local_germinate_from_offspring_immigrant_and_dormancy_pool', 'pools', germ('meta_local_germinate_from_offspring_immigrant_and_dormancy_pool')),
-    'germ+birth markers True': ('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', 'markers', lambda m, ml, s, o: m.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None, True)),
-    'germ+birth markers False': ('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', 'markers', lambda m, ml, s, o: m.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None, False)),
+    'germ+birth markers True': ('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', 'markers', lambda m, ml, s, o: m.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(True)),
+    'germ+birth markers False': ('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', 'markers', lambda m, ml, s, o: m.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(False)),
     'dead selection': ('meta_dead_selection', 'pools', lambda m, ml, s, o: m.meta_dead_selection((0.1, 0.4)[s % 2], (0.5, 0.3)[s % 2], ('niche_gaussian', 'neutral_uniform')[s % 4 // 3])),
     'dormancy O->D': ('meta_dormancy_process_from_offspring_pool_to_dormancy_pool', 'pools', lambda m, ml, s, o: m.meta_dormancy_process_from_offspring_pool_to_dormancy_pool()),
     'dormancy O+I': ('meta_dormancy_process_from_offspring_pool_and_immigrant_pool', 'pools', lambda m, ml, s, o: m.meta_dormancy_process_from_offspring_pool_and_immigrant_pool()),
-    'sex reproduce': ('meta_sex_reproduce_mutate_into_offspring_pool', 'pools', lambda m, ml, s, o: m.meta_sex_reproduce_mutate_into_offspring_pool(rate(s), None, None)),
-    'mainland sexual birth': ('meta_mainland_sexual_birth_mutate_germinate', 'mainland', lambda m, ml, s, o: ml.meta_mainland_sexual_birth_mutate_germinate((0.5, 1.0)[s % 2], None, None)),
+    'sex reproduce': ('meta_sex_reproduce_mutate_into_offspring_pool', 'pools', lambda m, ml, s, o: m.meta_sex_reproduce_mutate_into_offspring_pool(rate(s))),
+    'mainland sexual birth': ('meta_mainland_sexual_birth_mutate_germinate', 'mainland', lambda m, ml, s, o: ml.meta_mainland_sexual_birth_mutate_germinate((0.5, 1.0)[s % 2])),
     'marker calc sex': ('meta_sex_reproduce_calculation_with_offspring_marker_pool', 'calc', lambda m, ml, s, o: m.meta_sex_reproduce_calculation_with_offspring_marker_pool(rate(s))),
     'marker calc asex': ('meta_asex_reproduce_calculation_into_offspring_marker_pool', 'calc', lambda m, ml, s, o: m.meta_asex_reproduce_calculation_into_offspring_marker_pool(rate(s))),
     'marker calc mix': ('meta_mix_reproduce_calculation_with_offspring_marker_pool', 'calc', lambda m, ml, s, o: m.meta_mix_reproduce_calculation_with_offspring_marker_pool(rate(s), 1 - rate(s) / 2)),
@@ -745,7 +745,7 @@ def section_nemo_level():
         r0 = recycled(F)
         ml.meta_dead_selection(0.2, 0.5, 'niche_gaussian'); assert all(not x.is_alive for x in RECYCLED_REFS)
         res = {x.individual_id: h for h in all_habs(ml) for x in micro(h)}; ids0 = set(map(id, held(ml))); m0 = minted(F)
-        ml.meta_mainland_sexual_birth_mutate_germinate(1.0, None, None)
+        ml.meta_mainland_sexual_birth_mutate_germinate(1.0)
         new = [(h, x) for h in all_habs(ml) for x in micro(h) if id(x) not in ids0]
         assert len(new) == minted(F) - m0 and all(res[x.mother_id] is h and res[x.father_id] is h and x.nemo_indi_obj.getHome() == h.global_index for h, x in new), 'mainland birth homepatch / parents'
         home['mainland_birth'] += len(new)
@@ -754,7 +754,7 @@ def section_nemo_level():
         res = {x.individual_id: h for h in all_habs(isl) for x in micro(h)}
         if t % 2 == 0:
             m0 = minted(F)
-            isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+            isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0)
             kids = [(h, x) for h in all_habs(isl) for x in h.offspring_pool]
             assert len(kids) == minted(F) - m0 and all(res[x.mother_id] is h and res[x.father_id] is h and x.nemo_indi_obj.getHome() == h.global_index for h, x in kids), 'offspring pool homepatch'
             home['offspring_pool'] += len(kids)
@@ -767,7 +767,7 @@ def section_nemo_level():
             hab_of = {(p.name, h.name): h for p in all_patches(isl) for h in p.set.values()}
             before_mk = {id(h): [mk for q in MARKER_POOLS for mk in getattr(h, q)] for h in all_habs(isl)}
             ids0, m0 = set(map(id, held(isl))), minted(F)
-            isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None)
+            isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool()
             consumed = {}
             for h in all_habs(isl):
                 left = [mk for q in MARKER_POOLS for mk in getattr(h, q)]
@@ -842,7 +842,7 @@ def section_edges():
         isl.meta_dead_selection(0.3, 0.5, 'niche_gaussian'); isl.meta_sex_reproduce_calculation_with_offspring_marker_pool(1.0)
         isl.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool(0.8, method='uniform')
         isl.set['p0'].patch_disturbance_process()                                 # p0 loses its parents; p0's markers sitting in p1 / p2 survive
-        try: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None); stale['ok'] += 1
+        try: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(); stale['ok'] += 1
         except ValueError: stale['ValueError'] += 1
         check_world([ml, isl], fs, 'stale markers %d' % s)
         isl.meta_clear_up_offspring_marker_and_immigrant_marker_pool()
@@ -858,10 +858,10 @@ def section_edges():
 
 
 # ================================================================ 5. probes
-ASEX_MIX = [('meta_mainland_asexual_birth_mutate_germinate', lambda ml, isl: ml.meta_mainland_asexual_birth_mutate_germinate(0.5, 0.01, [0.01, 0.01])),
-            ('meta_mainland_mixed_birth_mutate_germinate', lambda ml, isl: ml.meta_mainland_mixed_birth_mutate_germinate(0.5, 0.5, 0.01, [0.01, 0.01])),
-            ('meta_asex_reproduce_mutate_into_offspring_pool', lambda ml, isl: isl.meta_asex_reproduce_mutate_into_offspring_pool(0.5, 0.01, [0.01, 0.01])),
-            ('meta_mix_reproduce_mutate_into_offspring_pool', lambda ml, isl: isl.meta_mix_reproduce_mutate_into_offspring_pool(0.5, 0.5, 0.01, [0.01, 0.01])),
+ASEX_MIX = [('meta_mainland_asexual_birth_mutate_germinate', lambda ml, isl: ml.meta_mainland_asexual_birth_mutate_germinate(0.5)),
+            ('meta_mainland_mixed_birth_mutate_germinate', lambda ml, isl: ml.meta_mainland_mixed_birth_mutate_germinate(0.5, 0.5)),
+            ('meta_asex_reproduce_mutate_into_offspring_pool', lambda ml, isl: isl.meta_asex_reproduce_mutate_into_offspring_pool(0.5)),
+            ('meta_mix_reproduce_mutate_into_offspring_pool', lambda ml, isl: isl.meta_mix_reproduce_mutate_into_offspring_pool(0.5, 0.5)),
             ('meta_asex_reproduce_calculation_into_offspring_marker_pool', lambda ml, isl: isl.meta_asex_reproduce_calculation_into_offspring_marker_pool(0.5)),
             ('meta_mix_reproduce_calculation_with_offspring_marker_pool', lambda ml, isl: isl.meta_mix_reproduce_calculation_with_offspring_marker_pool(0.5, 0.5))]
 
@@ -899,7 +899,7 @@ def section_probes():
             isl.meta_dead_selection(0.4, 0.5, 'niche_gaussian'); isl.meta_sex_reproduce_calculation_with_offspring_marker_pool(1.0)
             h = all_habs(isl)[0]; h.immigrant_marker_pool.append(('p1', 'h0', mode))
             n0 = indi_n(isl)
-            try: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None); raised = False
+            try: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(); raised = False
             except NotImplementedError: raised = True
             b = indi_n(isl) - n0
             if raised: part[mode]['raised'] += 1; part[mode]['born_before_raise'] += b; part[mode]['seeds_with_partial_births'] += b > 0
@@ -911,7 +911,7 @@ def section_probes():
     print('5.2 asexual / mix markers in germinate-and-birth:', part)
     # extension: offspring network dispersal samples without removal -> two owners (KNOWN, demonstrated, does not fail the suite)
     seed_all(5); np.random.seed(5); isl = make_islands(3, 2, L=4, K=0, gidx0=100); isl.meta_initialize(F, TABLE)
-    isl.meta_dead_selection(0.3, 0.5, 'niche_gaussian'); isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+    isl.meta_dead_selection(0.3, 0.5, 'niche_gaussian'); isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0)
     isl.dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_immigrant_pool(0.6, method='exponential', rho=2)
     hs = all_habs(isl)
     off = {id(x) for h in hs for x in h.offspring_pool}
@@ -1068,7 +1068,7 @@ def fuzz(n_runs=30, n_ops=110):
         def germ_birth():
             hab = {(p.name, h.name): h for p in C.all_patches(isl) for h in p.set.values()}
             stale = any(not _has_pair(hab[mk[:2]]) for h in all_habs(isl) for q in MARKER_POOLS for mk in getattr(h, q))
-            try: return isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None, rng.random() < 0.7)
+            try: return isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(rng.random() < 0.7)
             except ValueError:
                 if stale: allowed['germinate-and-birth: stale marker'] = allowed.get('germinate-and-birth: stale marker', 0) + 1; return 'allowed ValueError'
                 raise
@@ -1094,10 +1094,10 @@ def fuzz(n_runs=30, n_ops=110):
                 N = isl.get_dispersal_among_num_matrix(0.3); assert (N >= 0).all() and (N == np.round(N)).all()
 
         OPS = {'ml_dead': lambda: ml.meta_dead_selection(rng.choice((0.0, 0.1, 0.5, 1.0)), rng.choice((0.2, 0.5, 2.0)), rng.choice(('niche_gaussian', 'neutral_uniform'))),
-               'ml_birth': lambda: ml.meta_mainland_sexual_birth_mutate_germinate(rng.choice((0.3, 1.0)), None, None),
+               'ml_birth': lambda: ml.meta_mainland_sexual_birth_mutate_germinate(rng.choice((0.3, 1.0))),
                'colonize': colonize(False), 'colonize_pairwise': colonize(True),
                'dead': lambda: isl.meta_dead_selection(rng.choice((0.0, 0.1, 0.5, 1.0)), rng.choice((0.2, 0.5, 2.0)), rng.choice(('niche_gaussian', 'neutral_uniform'))),
-               'reproduce': lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(rng.choice((0.0, 0.3, 0.77, 1.0)), None, None),
+               'reproduce': lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(rng.choice((0.0, 0.3, 0.77, 1.0))),
                'marker_calc': lambda: isl.meta_sex_reproduce_calculation_with_offspring_marker_pool(rng.random()),
                'within_marker': lambda: isl.meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool(r(), rng.random() < 0.5),
                'within_O->I': lambda: isl.meta_dispersal_within_patch_from_offspring_to_immigrant_pool(r()),
@@ -1287,21 +1287,21 @@ def perf():
         np.random.seed(L); ml = C.make_mainland(); isl = C.make_islands(4, 2, L=L, K=L * L // 2, gidx0=100)
         ml.meta_initialize(F, C.TABLE); isl.meta_initialize(F, C.TABLE)
         calls = [('meta_initialize (islands)', lambda: isl.meta_initialize(F, C.TABLE)), ('meta_dead_selection (mainland 1800)', lambda: ml.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
-                 ('meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1.0, None, None)),
+                 ('meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1.0)),
                  ('meta_colonize_from_propagules_rains (6.4)', lambda: isl.meta_colonize_from_propagules_rains(ml, 6.4)),
                  ('pairwise_sexual_colonization_from_prpagules_rains (6.4)', lambda: isl.pairwise_sexual_colonization_from_prpagules_rains(ml, 6.4)),
                  ('meta_dead_selection (islands)', lambda: isl.meta_dead_selection(0.2, 0.5, 'niche_gaussian')),
-                 ('meta_sex_reproduce_mutate_into_offspring_pool', lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)),
+                 ('meta_sex_reproduce_mutate_into_offspring_pool', lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0)),
                  ('meta_dispersal_within_patch_from_offspring_and_dormancy_to_immigrant_pool', lambda: isl.meta_dispersal_within_patch_from_offspring_and_dormancy_to_immigrant_pool(0.3)),
                  ('dispersal_among_patches_from_offsrping_pool_and_dormancy_pool_to_immigrant_pool', lambda: isl.dispersal_among_patches_from_offsrping_pool_and_dormancy_pool_to_immigrant_pool(0.2, method='exponential', rho=2)),
                  ('meta_local_germinate_from_offspring_immigrant_and_dormancy_pool', isl.meta_local_germinate_from_offspring_immigrant_and_dormancy_pool),
                  ('meta_dormancy_process_from_offspring_pool_and_immigrant_pool', isl.meta_dormancy_process_from_offspring_pool_and_immigrant_pool),
                  ('meta_dead_selection (islands) ', lambda: isl.meta_dead_selection(0.2, 0.5, 'niche_gaussian')),
-                 ('meta_sex_reproduce_mutate_into_offspring_pool ', lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)),
+                 ('meta_sex_reproduce_mutate_into_offspring_pool ', lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0)),
                  ('dispersal_among_patches_from_offspring_pool_and_dormancy_pool', lambda: isl.dispersal_among_patches_from_offspring_pool_and_dormancy_pool(0.2, method='exponential', rho=2)),
                  ('meta_sex_reproduce_calculation_with_offspring_marker_pool', lambda: isl.meta_sex_reproduce_calculation_with_offspring_marker_pool(1.0)),
                  ('dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool', lambda: isl.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool(0.2, method='exponential', rho=2)),
-                 ('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', lambda: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None)),
+                 ('meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', lambda: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool()),
                  ('meta_disturbance_process_in_patches', lambda: isl.meta_disturbance_process_in_patches(0.5)),
                  ('meta_clear_up_offspring_and_immigrant_pool', isl.meta_clear_up_offspring_and_immigrant_pool),
                  ('meta_clear_up_offspring_marker_and_immigrant_marker_pool', isl.meta_clear_up_offspring_marker_and_immigrant_marker_pool)]

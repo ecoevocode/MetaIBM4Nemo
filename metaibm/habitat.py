@@ -252,7 +252,7 @@ class habitat():
                     continue
         return counter
 #*************** for habitat for mainland only and do not contains dormant bank ******************************************
-    def hab_asex_reproduce_mutate_with_num(self, mutation_rate, pheno_var_ls, num):
+    def hab_asex_reproduce_mutate_with_num(self, num):
         ''' NemoBackend: asexual birth of num offspring; INPUT: num = number of offspring; RETURN: list of offspring indi_obj '''
         list_of_offspring = []
         mother_pos_ls = random.sample(self.occupied_site_pos_ls, num)
@@ -282,9 +282,9 @@ class habitat():
     def hab_sexual_pairwise_parents_num(self):
         return len(self.hab_sexual_pairwise_parents_ls())  
     
-    def hab_sex_reproduce_mutate_with_num(self, mutation_rate, pheno_var_ls, num):
-        ''' NemoBackend: sexual birth of num offspring from random parent pairs; inheritance, recombination and mutation by Nemo's makeOffsprg()
-        INPUT: mutation_rate, pheno_var_ls = kept for the interface, ignored (set by the species' Nemo parameters); num = number of offspring
+    def hab_sex_reproduce_mutate_with_num(self, num):
+        ''' NemoBackend: sexual birth of num offspring from random parent pairs; inheritance, recombination and mutation by Nemo's makeOffsprg() (mutation and Ve set by the species' Nemo parameters)
+        INPUT: num = number of offspring
         RETURN: list of offspring indi_obj '''
         list_of_offspring = []
         pairwise_parents_pos_ls = random.sample(self.hab_sexual_pairwise_parents_ls(), num)     # TODO(offspring_num): now num <= number of parent pairs (sampled without replacement: at most one offspring per pair); lift this so sexual_birth_rate is a true birth rate (offspring per pair, may be > 1)
@@ -319,7 +319,7 @@ class habitat():
     def hab_mixed_asexual_parent_num(self):
         return len(self.asexual_parent_pos_ls)    
     
-    def hab_mix_asex_reproduce_mutate_with_num(self, mutation_rate, pheno_var_ls, num):
+    def hab_mix_asex_reproduce_mutate_with_num(self, num):
         ''' NemoBackend: mixed mode, asexual part; INPUT: num = number of asexual offspring; RETURN: list of asexual offspring indi_obj '''
         list_of_offspring = []
         mother_pos_ls = random.sample(self.asexual_parent_pos_ls, num)
@@ -328,7 +328,7 @@ class habitat():
             list_of_offspring.append(mother_indi_obj.indfactory.make_clone(mother_indi_obj, home_habitat=self.global_index))
         return list_of_offspring
     
-    def hab_mix_sex_reproduce_mutate_with_num(self, mutation_rate, pheno_var_ls, num):
+    def hab_mix_sex_reproduce_mutate_with_num(self, num):
         ''' NemoBackend: mixed mode, sexual part; INPUT: num = number of sexual offspring; RETURN: list of sexual offspring indi_obj '''
         list_of_offspring = []
         pairwise_parents_pos_ls = random.sample(self.hab_mixed_sexual_pairwise_parents_ls(), num)
@@ -339,13 +339,13 @@ class habitat():
             list_of_offspring.append(female_indi_obj.indfactory.make_offspring(female_indi_obj, male_indi_obj, gender, home_habitat=self.global_index))
         return list_of_offspring
 ##******************************* birth and local germination *************************************#####    
-    def hab_asexual_reprodece_germinate(self, asexual_birth_rate, mutation_rate, pheno_var_ls):
+    def hab_asexual_reprodece_germinate(self, asexual_birth_rate):
         ''' NemoBackend: asexual birth directly into empty microsites (without competition between local offspring and immigrants)
-        INPUT: asexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: asexual_birth_rate
         RETURN: number germinated (num <= empty sites) '''
         counter = 0
         num = min(len(self.empty_site_pos_ls), int(self.indi_num * asexual_birth_rate))                          # offspring_num <= empty sites
-        hab_offsprings_for_germinate = self.hab_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num) # NemoBackend Methods
+        hab_offsprings_for_germinate = self.hab_asex_reproduce_mutate_with_num(num)                              # NemoBackend Methods
 
         random.shuffle(self.empty_site_pos_ls)
         random.shuffle(hab_offsprings_for_germinate)
@@ -357,13 +357,13 @@ class habitat():
             counter += 1
         return counter
         
-    def hab_sexual_reprodece_germinate(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def hab_sexual_reprodece_germinate(self, sexual_birth_rate):
         ''' NemoBackend: sexual birth directly into empty microsites (without competition between local offspring and immigrants)
-        INPUT: sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: sexual_birth_rate
         RETURN: number germinated (num <= empty sites) '''
         counter = 0
         num = min(len(self.empty_site_pos_ls), int(self.hab_sexual_pairwise_parents_num() * sexual_birth_rate)) # offspring_num <= empty sites
-        hab_offsprings_for_germinate = self.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num) # NemoBackended methods
+        hab_offsprings_for_germinate = self.hab_sex_reproduce_mutate_with_num(num)                              # NemoBackended methods
     
         random.shuffle(self.empty_site_pos_ls)
         random.shuffle(hab_offsprings_for_germinate)
@@ -375,9 +375,9 @@ class habitat():
             counter += 1
         return counter
     
-    def hab_mixed_reproduce_germinate(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def hab_mixed_reproduce_germinate(self, asexual_birth_rate, sexual_birth_rate):
         ''' NemoBackend: mixed birth directly into empty microsites (asexual + sexual);
-        INPUT: asexual_birth_rate, sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: asexual_birth_rate, sexual_birth_rate
         RETURN: number germinated '''
         counter = 0
         empty_sites_pos_ls = self.empty_site_pos_ls
@@ -390,7 +390,7 @@ class habitat():
         asex_num = min(asex_offs_expectation_num, int(np.around(empty_sites_num * asex_offs_expectation_num / total))) if total > 0 else 0
         sex_num  = min(sex_offs_expectation_num, empty_sites_num - asex_num)
         
-        hab_offsprings_for_germinate = self.hab_mix_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, asex_num) + self.hab_mix_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, sex_num) # NemoBackend Methods
+        hab_offsprings_for_germinate = self.hab_mix_asex_reproduce_mutate_with_num(asex_num) + self.hab_mix_sex_reproduce_mutate_with_num(sex_num) # NemoBackend Methods
 
         random.shuffle(self.empty_site_pos_ls)
         random.shuffle(hab_offsprings_for_germinate)
@@ -475,36 +475,36 @@ class habitat():
         return len(self.offspring_marker_pool)
         
 #*************************** reprodction into offsprings pool processes *************************************
-    def hab_asex_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, mutation_rate, pheno_var_ls):
+    def hab_asex_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate):
         ''' NemoBackend: asexual birth into offspring_pool (expected offspring = indi_num x asexual_birth_rate; the fractional part is born by chance)
-        INPUT: asexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: asexual_birth_rate
         RETURN: len(offspring_pool) '''
         self.hab_clear_up_offspring_pool()                                                                 # NemoBackend Method: recycle leftover offspring instead of dropping them
         offspring_num = self.indi_num * asexual_birth_rate
         num = int(offspring_num + np.random.uniform(0,1,1)[0])                                             # stochastic rounding: the fractional part is born by chance
-        self.offspring_pool = self.hab_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num)    # NemoBackend Method: return a list of offspring individual object
+        self.offspring_pool = self.hab_asex_reproduce_mutate_with_num(num)                                 # NemoBackend Method: return a list of offspring individual object
         return len(self.offspring_pool)
     
-    def hab_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def hab_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate):
         ''' NemoBackend: sexual birth into offspring_pool (expected offspring = parent_pairs x sexual_birth_rate; the fractional part is born by chance)
-        INPUT: sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: sexual_birth_rate
         RETURN: len(offspring_pool) '''
         self.hab_clear_up_offspring_pool()                          # NemoBackend Method: recycle leftover offspring instead of dropping them
         offspring_num = self.hab_sexual_pairwise_parents_num() * sexual_birth_rate
         num = int(offspring_num + np.random.uniform(0,1,1)[0])      # stochastic rounding: the fractional part is born by chance
-        self.offspring_pool = self.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num) # NemoBackend Method: return a list of offspring individual object
+        self.offspring_pool = self.hab_sex_reproduce_mutate_with_num(num) # NemoBackend Method: return a list of offspring individual object
         return len(self.offspring_pool)
 
-    def hab_mix_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def hab_mix_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, sexual_birth_rate):
         ''' NemoBackend: mixed birth into offspring_pool (asexual: asexual parents x asexual_birth_rate; sexual: parent pairs x sexual_birth_rate; each fractional part is born by chance)
-        INPUT: asexual_birth_rate, sexual_birth_rate; (TODO: remove mutation_rate, pheno_var_ls = kept for the interface, ignored)
+        INPUT: asexual_birth_rate, sexual_birth_rate
         RETURN: len(offspring_pool) '''
         self.hab_clear_up_offspring_pool()                                              # NemoBackend Method: recycle leftover offspring instead of dropping them
         asex_offspring_num = self.hab_mixed_asexual_parent_num() * asexual_birth_rate
         asex_num = int(asex_offspring_num + np.random.uniform(0,1,1)[0])                # stochastic rounding: the fractional part is born by chance
         sex_offspring_num = self.hab_mixed_sexual_pairwse_parents_num() * sexual_birth_rate
         sex_num = int(sex_offspring_num + np.random.uniform(0,1,1)[0])                  # stochastic rounding: the fractional part is born by chance
-        self.offspring_pool = self.hab_mix_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, asex_num) + self.hab_mix_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, sex_num) # NemoBackend Methods
+        self.offspring_pool = self.hab_mix_asex_reproduce_mutate_with_num(asex_num) + self.hab_mix_sex_reproduce_mutate_with_num(sex_num) # NemoBackend Methods
         return len(self.offspring_pool)
 
 #*********************************** local germination processes ************************************************

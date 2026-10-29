@@ -8,13 +8,13 @@ import numpy as np
 from common import (habitat, fake_indi, make_species, make_hab, check_invariants, held_individuals, microsite_individuals, recycle_everything,
                     save, seed_all, finding, chi2_ok, rss_mb, HERE)
 
-ASEX_MIX = [('hab_asex_reproduce_mutate_with_num', lambda h: h.hab_asex_reproduce_mutate_with_num(0.01, [0.01, 0.01], 2)),
-            ('hab_asex_reproduce_mutate_into_offspring_pool', lambda h: h.hab_asex_reproduce_mutate_into_offspring_pool(0.5, 0.01, [0.01, 0.01])),
-            ('hab_asexual_reprodece_germinate', lambda h: h.hab_asexual_reprodece_germinate(0.5, 0.01, [0.01, 0.01])),
-            ('hab_mix_asex_reproduce_mutate_with_num', lambda h: h.hab_mix_asex_reproduce_mutate_with_num(0.01, [0.01, 0.01], 1)),
-            ('hab_mix_sex_reproduce_mutate_with_num', lambda h: h.hab_mix_sex_reproduce_mutate_with_num(0.01, [0.01, 0.01], 1)),
-            ('hab_mix_reproduce_mutate_into_offspring_pool', lambda h: h.hab_mix_reproduce_mutate_into_offspring_pool(0.5, 0.5, 0.01, [0.01, 0.01])),
-            ('hab_mixed_reproduce_germinate', lambda h: h.hab_mixed_reproduce_germinate(0.5, 0.5, 0.01, [0.01, 0.01])),
+ASEX_MIX = [('hab_asex_reproduce_mutate_with_num', lambda h: h.hab_asex_reproduce_mutate_with_num(2)),
+            ('hab_asex_reproduce_mutate_into_offspring_pool', lambda h: h.hab_asex_reproduce_mutate_into_offspring_pool(0.5)),
+            ('hab_asexual_reprodece_germinate', lambda h: h.hab_asexual_reprodece_germinate(0.5)),
+            ('hab_mix_asex_reproduce_mutate_with_num', lambda h: h.hab_mix_asex_reproduce_mutate_with_num(1)),
+            ('hab_mix_sex_reproduce_mutate_with_num', lambda h: h.hab_mix_sex_reproduce_mutate_with_num(1)),
+            ('hab_mix_reproduce_mutate_into_offspring_pool', lambda h: h.hab_mix_reproduce_mutate_into_offspring_pool(0.5, 0.5)),
+            ('hab_mixed_reproduce_germinate', lambda h: h.hab_mixed_reproduce_germinate(0.5, 0.5)),
             ('hab_asex_reproduce_calculation_into_offspring_marker_pool', lambda h: h.hab_asex_reproduce_calculation_into_offspring_marker_pool('p', 0.5)),
             ('hab_mix_reproduce_calculation_into_offspring_marker_pool', lambda h: h.hab_mix_reproduce_calculation_into_offspring_marker_pool('p', 0.5, 0.5))]
 # ================================================================ 1. v3 loops
@@ -29,7 +29,7 @@ def v3_run(L, seed, mode, steps=50, check=True):
         tag = '%s L=%d seed=%d t=%d' % (mode, L, seed, t)
         r0 = sp.recycled_num
         assert h.hab_dead_selection(0.1, 0.5, 'niche_gaussian') == sp.recycled_num - r0, tag + ' dead != recycled'
-        h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+        h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)
         if mode != 'individual':
             for _ in range(random.randint(0, 15)): h.immigrant_pool.append(sp.make_founder(random.choice(('male', 'female')), 9))
         pools = ('offspring_pool', 'immigrant_pool') + (('dormancy_pool',) if mode != 'individual' else ())
@@ -141,7 +141,7 @@ def section_reproduction():
     by_id = {x.individual_id: x for x in microsite_individuals(h)}
     err = 0.0
     for num in (0, 1, 10, h.hab_sexual_pairwise_parents_num()):
-        kids = h.hab_sex_reproduce_mutate_with_num(None, None, num)
+        kids = h.hab_sex_reproduce_mutate_with_num(num)
         assert len(kids) == num
         for k in kids:
             m, f = by_id[k.mother_id], by_id[k.father_id]
@@ -158,7 +158,7 @@ def section_reproduction():
     nf = tot = 0; mu, fu = dict.fromkeys(females, 0), dict.fromkeys(males, 0)
     T, NUM, pairs = 300, 8, h.hab_sexual_pairwise_parents_num()
     for t in range(T):
-        kids = h.hab_sex_reproduce_mutate_with_num(None, None, NUM)
+        kids = h.hab_sex_reproduce_mutate_with_num(NUM)
         assert len({k.mother_id for k in kids}) == NUM and len({k.father_id for k in kids}) == NUM, 'a parent bred twice in one batch'
         for k in kids:
             nf += k.gender == 'female'; tot += 1; mu[k.mother_id] += 1; fu[k.father_id] += 1; k.recycle()
@@ -171,7 +171,7 @@ def section_reproduction():
     h = make_hab(L=8, mean=(0.3, 0.3))
     h.hab_initialize({'sp1': sm}, [[0.3, 0.3]])
     by_id = {x.individual_id: x for x in microsite_individuals(h)}
-    h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+    h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)
     new = copies = 0
     for k in h.offspring_pool:
         for axis in range(2):
@@ -191,7 +191,7 @@ def section_reproduction():
         lo = int(pairs * rate); frac = pairs * rate - lo; extra = 0
         for t in range(400):
             np.random.seed(1000 + t)
-            r = h.hab_sex_reproduce_mutate_into_offspring_pool(rate, None, None)
+            r = h.hab_sex_reproduce_mutate_into_offspring_pool(rate)
             assert r in (lo, lo + 1) and len(h.offspring_pool) == r and all(k.nemo_indi_obj.getHome() == 1 for k in h.offspring_pool)
             extra += r - lo
         assert abs(extra / 400 - frac) < 4 * math.sqrt(frac * (1 - frac) / 400) + 1e-9
@@ -202,7 +202,7 @@ def section_reproduction():
             r = h.hab_sex_reproduce_calculation_into_offspring_marker_pool('patchX', rate)
             assert r in (lo, lo + 1) and h.offspring_marker_pool == [('patchX', 'h1', 'sexual')] * r
         assert sp2.minted_num == m0
-    np.random.seed(3); h.hab_sex_reproduce_mutate_into_offspring_pool(0.37, None, None); st = np.random.get_state()
+    np.random.seed(3); h.hab_sex_reproduce_mutate_into_offspring_pool(0.37); st = np.random.get_state()
     np.random.seed(3); np.random.uniform(0, 1, 1)
     assert np.array_equal(np.random.get_state()[1], st[1]) and np.random.get_state()[2] == st[2], 'np.random use != one uniform per call'
     h.hab_clear_up_offspring_pool()
@@ -210,7 +210,7 @@ def section_reproduction():
         np.random.seed(t); h.hab_dead_selection(0.3, 0.5, 'niche_gaussian')
         empty, m0 = len(h.empty_site_pos_ls), sp2.minted_num
         st = np.random.get_state()[1].copy()
-        r = h.hab_sexual_reprodece_germinate(1.0, None, None)
+        r = h.hab_sexual_reprodece_germinate(1.0)
         assert r == sp2.minted_num - m0 and r <= empty and np.array_equal(np.random.get_state()[1], st), 'direct birth leaked or used np.random'
         check_invariants(h, FACT, 'reprodece_germinate %d' % t)
     recycle_everything(h)
@@ -223,7 +223,7 @@ def section_reproduction():
         x = h.set['microsite_individuals'][i][j]; h.del_individual(i, j); x.recycle()
         h.add_individual(sp2.make_founder('female' if k % 2 else 'male', 2), i, j)
     by_id = {x.individual_id: x for x in microsite_individuals(h)}
-    h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+    h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)
     assert {k.species_id for k in h.offspring_pool} == {'sp1', 'sp2'}
     assert all(by_id[k.mother_id].species_id == by_id[k.father_id].species_id == k.species_id and k.indfactory is by_id[k.mother_id].indfactory for k in h.offspring_pool)
     h.hab_local_germinate_from_offspring_and_immigrant_pool(); h.hab_clear_up_offspring_pool()
@@ -234,18 +234,18 @@ def section_reproduction():
     # ================================================================ 6. degenerate parent sets and rates
     h = make_hab(L=4); h.hab_initialize({'sp2': sp2}, TABLE, 'asexual')
     m0 = sp2.minted_num
-    assert h.hab_sexual_pairwise_parents_num() == 0 and h.hab_sex_reproduce_mutate_into_offspring_pool(0.99, None, None) == 0 and h.hab_sexual_reprodece_germinate(1.0, None, None) == 0 and sp2.minted_num == m0
+    assert h.hab_sexual_pairwise_parents_num() == 0 and h.hab_sex_reproduce_mutate_into_offspring_pool(0.99) == 0 and h.hab_sexual_reprodece_germinate(1.0) == 0 and sp2.minted_num == m0
     recycle_everything(h)
     h = make_hab(L=3); h.add_individual(sp2.make_founder('female', 3), 0, 0); h.add_individual(sp2.make_founder('male', 3), 2, 2)
-    assert h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None) == 1
+    assert h.hab_sex_reproduce_mutate_into_offspring_pool(1.0) == 1
     recycle_everything(h)
     h = make_hab(L=6); h.hab_initialize({'sp2': sp2}, TABLE); pairs = h.hab_sexual_pairwise_parents_num()
-    assert h.hab_sex_reproduce_mutate_into_offspring_pool(0.0, None, None) == 0
-    h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+    assert h.hab_sex_reproduce_mutate_into_offspring_pool(0.0) == 0
+    h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)
     first = list(h.offspring_pool)
-    h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)                       # leftovers recycled, not dropped
+    h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)                       # leftovers recycled, not dropped
     assert first and not any(k.is_alive for k in first)
-    try: h.hab_sex_reproduce_mutate_into_offspring_pool(1.5, None, None); r15 = 'no error'
+    try: h.hab_sex_reproduce_mutate_into_offspring_pool(1.5); r15 = 'no error'
     except ValueError: r15 = 'ValueError'
     check_invariants(h, FACT, 'rate 1.5 aftermath')
     out['rate_1.5'] = r15
@@ -286,7 +286,7 @@ def section_lifecycle():
         for g in range(gens):
             if g == offset_at: h.hab_offset_environment_values(['env1', 'env2'], [0.15, 0.15])
             h.hab_dead_selection(0.1, 0.5, method)
-            h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+            h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)
             h.hab_local_germinate_from_offspring_and_immigrant_pool(); h.hab_clear_up_offspring_pool()
             traj.append(float(np.mean([x.get_indi_phenotype_ls()[0] for x in microsite_individuals(h)])))
         check_invariants(h, sp, 'evolve'); recycle_everything(h)
@@ -307,7 +307,7 @@ def section_lifecycle():
     moved = []
     for t in range(40):
         for h in habs:
-            h.hab_dead_selection(0.1, 0.5, 'niche_gaussian'); h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+            h.hab_dead_selection(0.1, 0.5, 'niche_gaussian'); h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)
             assert all(k.nemo_indi_obj.getHome() == h.global_index for k in h.offspring_pool)
         for i, h in enumerate(habs):
             mig = h.sample_offspring_without_replacement(random.randint(0, 4), ('offspring_pool', 'dormancy_pool'))
@@ -341,9 +341,9 @@ def section_lifecycle():
             if h.occupied_site_pos_ls:
                 i, j = rng.choice(h.occupied_site_pos_ls); x = h.set['microsite_individuals'][i][j]; h.del_individual(i, j); x.recycle()
         OPS = [lambda: h.hab_dead_selection(rng.choice((0.0, 0.1, 0.5, 1.0)), rng.choice((0.2, 0.5, 2.0)), rng.choice(('niche_gaussian', 'neutral_uniform'))),
-               lambda: h.hab_sex_reproduce_mutate_into_offspring_pool(rng.choice((0.0, 0.3, 0.77, 1.0)), None, None),
+               lambda: h.hab_sex_reproduce_mutate_into_offspring_pool(rng.choice((0.0, 0.3, 0.77, 1.0))),
                lambda: h.hab_sex_reproduce_calculation_into_offspring_marker_pool('p', rng.random()),
-               lambda: h.hab_sexual_reprodece_germinate(rng.choice((0.5, 1.0)), None, None),
+               lambda: h.hab_sexual_reprodece_germinate(rng.choice((0.5, 1.0))),
                h.hab_local_germinate_from_offspring_and_immigrant_pool, h.hab_local_germinate_from_offspring_and_dormancy_pool,
                h.hab_local_germinate_from_offspring_immigrant_and_dormancy_pool, h.hab_dormancy_process_from_offspring_pool_to_dormancy_pool,
                h.hab_dormancy_process_from_offspring_pool_and_immigrant_pool, h.habitat_disturbance_process, h.hab_clear_up_offspring_pool,
@@ -378,7 +378,7 @@ def section_memory():
     dead = []
     for t in range(150):
         churn.hab_dead_selection(0.3, 0.4, 'niche_gaussian')
-        churn.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+        churn.hab_sex_reproduce_mutate_into_offspring_pool(1.0)
         born = list(churn.offspring_pool)
         assert all(k.individual_id > max_id for k in born), 'ID reused at t=%d' % t
         max_id = max([max_id] + [k.individual_id for k in born])
@@ -410,7 +410,7 @@ def section_memory():
     rss = {}
     for t in range(400):
         h.hab_dead_selection(0.2, 0.5, 'niche_gaussian')
-        h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+        h.hab_sex_reproduce_mutate_into_offspring_pool(1.0)
         h.hab_local_germinate_from_offspring_immigrant_and_dormancy_pool()
         h.hab_dormancy_process_from_offspring_pool_to_dormancy_pool()
         if t in (50, 200, 399): rss[t] = round(rss_mb(), 1)
@@ -431,11 +431,11 @@ def section_edges_known():
 
     # ================================================================ 1. shapes + empty habitat: every NemoBackend function, invariants after each
     def every_function(h, tag):
-        calls = [lambda: h.hab_dead_selection(0.1, 0.5, 'niche_gaussian'), lambda: h.hab_sex_reproduce_mutate_into_offspring_pool(1.0, None, None),
+        calls = [lambda: h.hab_dead_selection(0.1, 0.5, 'niche_gaussian'), lambda: h.hab_sex_reproduce_mutate_into_offspring_pool(1.0),
                  h.hab_local_germinate_from_offspring_and_immigrant_pool, h.hab_local_germinate_from_offspring_and_dormancy_pool,
                  h.hab_local_germinate_from_offspring_immigrant_and_dormancy_pool, h.hab_dormancy_process_from_offspring_pool_to_dormancy_pool,
                  h.hab_dormancy_process_from_offspring_pool_and_immigrant_pool, lambda: h.hab_sex_reproduce_calculation_into_offspring_marker_pool('p', 0.7),
-                 lambda: h.hab_sexual_reprodece_germinate(1.0, None, None), h.habitat_disturbance_process, h.hab_clear_up_microsite_individuals,
+                 lambda: h.hab_sexual_reprodece_germinate(1.0), h.habitat_disturbance_process, h.hab_clear_up_microsite_individuals,
                  h.hab_clear_up_offspring_pool, h.hab_clear_up_immigrant_pool, h.hab_clear_up_dormancy_pool, h.hab_clear_up_offspring_marker_pool,
                  h.hab_clear_up_immigrant_marker_pool]
         res = []

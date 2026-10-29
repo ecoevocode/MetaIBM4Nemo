@@ -688,7 +688,7 @@ def cstats_worker():
     ''' C5: expected immigrants per destination, current (move) vs v3 (copy), same world, pools restored after every call; C5b: which source individual is picked (uniform) '''
     seed_all(3); F = C.species(3); fs = list(F.values())
     m = C.make_islands(3, 2, L=6, K=0, gidx0=100); m.meta_initialize(F, C.TABLE)
-    m.meta_dead_selection(0.2, 0.5, 'niche_gaussian'); m.meta_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+    m.meta_dead_selection(0.2, 0.5, 'niche_gaussian'); m.meta_sex_reproduce_mutate_into_offspring_pool(1.0)
     hobj = [m.set[p].set[h] for p, h in m.global_habitat_id_ls]; H = len(hobj)
     snap = [(list(h.offspring_pool), list(h.immigrant_pool)) for h in hobj]
     pools = [len(h.offspring_pool) for h in hobj]
@@ -925,13 +925,13 @@ def marker_bookkeeping():
         births = {}
         for (p, hn), h in zip(hl, hobj):
             real = h.hab_sex_reproduce_mutate_with_num
-            def wrapped(mr, pv, num, real=real, key=(p, hn)):
-                out = real(mr, pv, num)                     # parents are drawn from this (birth) habitat's microsites
+            def wrapped(num, real=real, key=(p, hn)):
+                out = real(num)                             # parents are drawn from this (birth) habitat's microsites
                 for x in out: births[id(x)] = (key,)
                 return out
             h.hab_sex_reproduce_mutate_with_num = wrapped
         try:
-            m.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None)
+            m.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool()
         except ValueError as e:
             stats['ValueError'] += 1
         after = [Counter(h.offspring_marker_pool + h.immigrant_marker_pool) for h in hobj]
@@ -958,7 +958,7 @@ def marker_bookkeeping():
         moved_from_p0 = sum(1 for p, h in m.global_habitat_id_ls if p != 'p0' for mk in m.set[p].set[h].immigrant_marker_pool if mk[0] == 'p0')
         m.set['p0'].patch_disturbance_process()
         a0 = m.get_meta_individual_num()
-        try: m.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None)
+        try: m.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool()
         except ValueError as e: raised += 1; births_before.append(m.get_meta_individual_num() - a0); err = str(e)
         C.check_world([m], fs, 'D3'); C.teardown([m], fs)
     check('D3 known risk reproduced: network marker dispersal -> disturbance of the birth patch -> germinate-and-birth raises ValueError part-way (%d / %d seeds), invariants hold afterwards' % (raised, n), raised > 0)
@@ -1247,9 +1247,9 @@ def fuzz_worker(seed, n_runs, n_ops):
             def f():
                 k, kw = kern(); return getattr(isl, fn)(rng.choice(RATES), method=k, **kw)
             return f
-        ops = {'mainland dead + birth': lambda: (ml.meta_dead_selection(0.2, 0.5, 'niche_gaussian'), ml.meta_mainland_sexual_birth_mutate_germinate(1.0, None, None)),
+        ops = {'mainland dead + birth': lambda: (ml.meta_dead_selection(0.2, 0.5, 'niche_gaussian'), ml.meta_mainland_sexual_birth_mutate_germinate(1.0)),
                'dead selection': lambda: isl.meta_dead_selection(rng.choice((0.05, 0.2, 0.5)), 0.5, 'niche_gaussian'),
-               'reproduce into offspring_pool': lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(rng.choice((0.5, 1.0)), None, None),
+               'reproduce into offspring_pool': lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(rng.choice((0.5, 1.0))),
                'offspring markers': lambda: isl.meta_sex_reproduce_calculation_with_offspring_marker_pool(rng.choice((0.5, 1.0))),
                'colonize': lambda: isl.meta_colonize_from_propagules_rains(ml, rng.choice((0.5, 2.0, 6.4))),
                'pairwise colonize': lambda: isl.pairwise_sexual_colonization_from_prpagules_rains(ml, rng.choice((0.5, 2.0))),
@@ -1266,7 +1266,7 @@ def fuzz_worker(seed, n_runs, n_ops):
                'germinate offspring+immigrant': lambda: isl.meta_local_germinate_from_offspring_and_immigrant_pool(),
                'germinate offspring+dormancy': lambda: isl.meta_local_germinate_from_offspring_and_dormancy_pool(),
                'germinate offspring+immigrant+dormancy': lambda: isl.meta_local_germinate_from_offspring_immigrant_and_dormancy_pool(),
-               'germinate-and-birth from markers': lambda: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None),
+               'germinate-and-birth from markers': lambda: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(),
                'dormancy offspring->dormancy': lambda: isl.meta_dormancy_process_from_offspring_pool_to_dormancy_pool(),
                'dormancy offspring+immigrant': lambda: isl.meta_dormancy_process_from_offspring_pool_and_immigrant_pool(),
                'disturbance patches': lambda: isl.meta_disturbance_process_in_patches(0.3),

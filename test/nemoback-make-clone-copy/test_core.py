@@ -499,15 +499,13 @@ def sec_static():
     clone_sites = sorted(short(q) for (f, q), fn in ALL_FN.items() if f in LAYERS and 'make_clone' in calls(fn))
     C.ok('S24 asexual births -> make_clone, sexual births -> make_offspring, all with home_habitat=self.global_index; make_clone called only in the two asexual with_num',
          not bad and clone_sites == ['hab_asex_reproduce_mutate_with_num', 'hab_mix_asex_reproduce_mutate_with_num'], {'bad': bad, 'make_clone sites': clone_sites})
-    used = []
+    left = []
     for name in B_FUNCS:
         fn = hab[name]
         params = [a.arg for a in fn.args.args]
-        if 'mutation_rate' not in params or 'pheno_var_ls' not in params: used.append((name, 'parameter missing'))
-        reads = [n for n in ast.walk(fn) if isinstance(n, ast.Name) and n.id in ('mutation_rate', 'pheno_var_ls') and isinstance(n.ctx, ast.Load)]
-        passes = [n for n in ast.walk(fn) if isinstance(n, ast.Call) for a in n.args if isinstance(a, ast.Name) and a.id in ('mutation_rate', 'pheno_var_ls')]
-        if len(reads) != len(passes): used.append((name, 'read outside a pass-through call'))
-    C.ok('S25 D4: mutation_rate / pheno_var_ls stay in the B signatures and are only passed through (never used)', not used, used or '%d functions' % len(B_FUNCS))
+        if 'mutation_rate' in params or 'pheno_var_ls' in params: left.append((name, 'parameter still in the signature'))
+        if any(isinstance(n, ast.Name) and n.id in ('mutation_rate', 'pheno_var_ls') for n in ast.walk(fn)): left.append((name, 'name still used in the body'))
+    C.ok('S25 D4: mutation_rate / pheno_var_ls removed from the B signatures', not left, left or '%d functions' % len(B_FUNCS))
 
 
 # ====================================================================== copy
@@ -1178,7 +1176,7 @@ def sec_with_num(n_seeds=150):
             num = random.Random(s).randint(0, len(lst))
             s0 = C.rng_state(); exp = random.sample(list(lst), num); s_exp = C.rng_state(); set_rng(s0)
             m0 = F['sp1'].minted_num + F['sp2'].minted_num
-            kids = fn(None, None, num)
+            kids = fn(num)
             if [k.mother_id for k in kids] != [res[p].individual_id for p in exp]: fail('%s: mothers == random.sample(%s, num)' % (kind, 'occupied_site_pos_ls' if kind == 'asex' else 'asexual_parent_pos_ls'), s)
             if not C.same_rng_state(C.rng_state(), s_exp): fail('%s: Python RNG consumed exactly as random.sample' % kind, s)
             if not all(is_clone_of(k, res[p], g) for k, p in zip(kids, exp)): fail('%s: clone = father 0, pedigree 4, home = global_index, gender + species of the mother' % kind, s)
@@ -1190,7 +1188,7 @@ def sec_with_num(n_seeds=150):
         num = random.Random(-s).randint(0, n_pairs)
         s0 = C.rng_state(); cat = copy.deepcopy(cat0); exp = random.sample(pairs_like_code(cat), num); genders = [random.sample(('male', 'female'), 1)[0] for _ in exp]
         s_exp = C.rng_state(); set_rng(s0)
-        kids = h.hab_mix_sex_reproduce_mutate_with_num(None, None, num)
+        kids = h.hab_mix_sex_reproduce_mutate_with_num(num)
         if [(k.mother_id, k.father_id) for k in kids] != [(res[f].individual_id, res[m].individual_id) for f, m in exp]: fail('mix sex: (mother, father) == random.sample(pairs rebuilt like the code, num)', s)
         if [k.gender for k in kids] != genders: fail('mix sex: offspring genders == the random.sample(("male", "female"), 1) draws', s)
         if not C.same_rng_state(C.rng_state(), s_exp) or h.species_category_for_sexual_parents_pos != cat: fail('mix sex: RNG + in-place shuffle of species_category_for_sexual_parents_pos as replayed', s)
@@ -1229,7 +1227,7 @@ def sec_asexual_germinate(n_seeds=200):
         h = mixed_hab(s, L=rng.randint(2, 7), W=rng.randint(2, 7), occ=rng.uniform(0.05, 1.0))
         rate = round(rng.uniform(0, 1.0), 3); res = residents(h); empty0, n0 = len(h.empty_site_pos_ls), h.indi_num
         m0, r0 = C.mc.minted(FS), C.mc.recycled(FS)
-        born = h.hab_asexual_reprodece_germinate(rate, None, None)
+        born = h.hab_asexual_reprodece_germinate(rate)
         new = [x for p, x in residents(h).items() if p not in res]
         want = min(empty0, int(n0 * rate))
         ok = (born == len(new) == want == h.indi_num - n0 and C.mc.minted(FS) - m0 == want and C.mc.recycled(FS) == r0
@@ -1248,10 +1246,10 @@ def over_rate_probe():
     out = {}
     v3 = C.v3_source('metaibm/habitat.py')
     same_in_v3 = 'parent_pos_ls = random.sample(self.occupied_site_pos_ls, num)' in v3 and 'parent_pos_ls = random.sample(self.asexual_parent_pos_ls, num)' in v3
-    for label, fn in (('hab_asexual_reprodece_germinate(2.0)', lambda h: h.hab_asexual_reprodece_germinate(2.0, None, None)),
-                      ('hab_asex_reproduce_mutate_into_offspring_pool(2.0)', lambda h: h.hab_asex_reproduce_mutate_into_offspring_pool(2.0, None, None)),
-                      ('hab_mixed_reproduce_germinate(2.0, 0.0)', lambda h: h.hab_mixed_reproduce_germinate(2.0, 0.0, None, None)),
-                      ('hab_mix_reproduce_mutate_into_offspring_pool(2.0, 0.0)', lambda h: h.hab_mix_reproduce_mutate_into_offspring_pool(2.0, 0.0, None, None))):
+    for label, fn in (('hab_asexual_reprodece_germinate(2.0)', lambda h: h.hab_asexual_reprodece_germinate(2.0)),
+                      ('hab_asex_reproduce_mutate_into_offspring_pool(2.0)', lambda h: h.hab_asex_reproduce_mutate_into_offspring_pool(2.0)),
+                      ('hab_mixed_reproduce_germinate(2.0, 0.0)', lambda h: h.hab_mixed_reproduce_germinate(2.0, 0.0)),
+                      ('hab_mix_reproduce_mutate_into_offspring_pool(2.0, 0.0)', lambda h: h.hab_mix_reproduce_mutate_into_offspring_pool(2.0, 0.0))):
         h = mixed_hab(4242, L=6, W=6, occ=0.3)
         h.offspring_pool = [F['sp1'].make_founder('female', 7) for _ in range(3)]                        # leftovers of a previous round
         lay0, m0, r0 = (dict((p, x.individual_id) for p, x in residents(h).items()), len(h.offspring_pool)), mc.minted(FS), mc.recycled(FS)
@@ -1298,7 +1296,7 @@ def sec_mixed_germinate(n_seeds=200):
         ra, rs = round(rng.uniform(0, 1.0), 3), round(rng.uniform(0, 1.0), 3)
         a_exp, s_exp, _ = mixed_expectations(h, ra, rs); a, x, empty = mixed_numbers(h, ra, rs); res = residents(h)
         m0, r0 = C.mc.minted(FS), C.mc.recycled(FS)
-        born = h.hab_mixed_reproduce_germinate(ra, rs, None, None)
+        born = h.hab_mixed_reproduce_germinate(ra, rs)
         new = [y for p, y in residents(h).items() if p not in res]
         clones = sum(1 for y in new if y.father_id == 0)
         want = min(empty, a_exp + s_exp)
@@ -1324,7 +1322,7 @@ def sec_mixed_germinate(n_seeds=200):
                 h.species_category_for_sexual_parents_pos = {'sp1': {'female': fem[-P:], 'male': mal[-P:]}}
                 a, x, empty = mixed_numbers(h, 1.0, 1.0); va, vx, _ = v3_mixed_numbers(h, 1.0, 1.0)
                 m0, r0 = C.mc.minted(FS), C.mc.recycled(FS)
-                born = h.hab_mixed_reproduce_germinate(1.0, 1.0, None, None)
+                born = h.hab_mixed_reproduce_germinate(1.0, 1.0)
                 new = [y for p, y in residents(h).items() if p not in res]
                 clones = sum(1 for y in new if y.father_id == 0)
                 ok = born == len(new) == E == a + x and C.mc.minted(FS) - m0 == born and C.mc.recycled(FS) - r0 == 0 and clones == a and h.empty_site_pos_ls == []
@@ -1350,7 +1348,7 @@ def sec_mixed_germinate(n_seeds=200):
     h.species_category_for_sexual_parents_pos = {'sp1': {'female': sites[3:6], 'male': sites[6:9]}}
     a, x, empty = mixed_numbers(h, 1.0, 1.0)
     m0, r0 = C.mc.minted(FS), C.mc.recycled(FS); res = residents(h)
-    born = h.hab_mixed_reproduce_germinate(1.0, 1.0, None, None)
+    born = h.hab_mixed_reproduce_germinate(1.0, 1.0)
     new = [y for p, y in residents(h).items() if p not in res]
     C.ok('3 tie case: 3 empty, asexual 3 x 1.0, sexual 3 pairs x 1.0 -> 2 clones + 1 sexual: 3 made, 3 born, 0 recycled (v3: 2 + 2 = 4 made)',
          (a, x, empty) == (2, 1, 3) and born == 3 and C.mc.minted(FS) - m0 == 3 and C.mc.recycled(FS) - r0 == 0 and sum(y.father_id == 0 for y in new) == 2 and h.empty_site_pos_ls == [],
@@ -1370,8 +1368,8 @@ def sec_into_pool(n_seeds=400):
     ma, ms = round((math.floor(A * 0.5) + 0.35) / A, 6), round((math.floor(P * 0.8) + 0.6) / max(P, 1), 6)
     xma, xms = A * ma, P * ms
     res = residents(h); res_ids = {x.individual_id for x in res.values()}
-    for label, call, parts in (('asex', lambda: h.hab_asex_reproduce_mutate_into_offspring_pool(ra, None, None), [('clones', xa)]),
-                               ('mix', lambda: h.hab_mix_reproduce_mutate_into_offspring_pool(ma, ms, None, None), [('clones', xma), ('sexual', xms)])):
+    for label, call, parts in (('asex', lambda: h.hab_asex_reproduce_mutate_into_offspring_pool(ra), [('clones', xa)]),
+                               ('mix', lambda: h.hab_mix_reproduce_mutate_into_offspring_pool(ma, ms), [('clones', xma), ('sexual', xms)])):
         sizes = {p: [] for p, _ in parts}; bad, first = Counter(), {}
         prev = list(h.offspring_pool)
         for s in range(n_seeds):
@@ -1400,12 +1398,12 @@ def sec_into_pool(n_seeds=400):
     ml = mc.make_mainland(n_habs=2, L=10, gidx0=0); ml.meta_initialize(F, mc.TABLE, 'sexual')
     rows = []
     for name, fn in (('meta_dead_selection', lambda: ml.meta_dead_selection(0.05, 0.5, 'niche_gaussian')),
-                     ('meta_mainland_asexual_birth_mutate_germinate', lambda: ml.meta_mainland_asexual_birth_mutate_germinate(0.5, None, None)),
+                     ('meta_mainland_asexual_birth_mutate_germinate', lambda: ml.meta_mainland_asexual_birth_mutate_germinate(0.5)),
                      ('meta_dead_selection', lambda: ml.meta_dead_selection(0.05, 0.5, 'niche_gaussian')),
-                     ('meta_mainland_mixed_birth_mutate_germinate', lambda: ml.meta_mainland_mixed_birth_mutate_germinate(0.5, 1.0, None, None)),
+                     ('meta_mainland_mixed_birth_mutate_germinate', lambda: ml.meta_mainland_mixed_birth_mutate_germinate(0.5, 1.0)),
                      ('meta_dead_selection', lambda: ml.meta_dead_selection(0.05, 0.5, 'niche_gaussian')),
-                     ('meta_asex_reproduce_mutate_into_offspring_pool', lambda: ml.meta_asex_reproduce_mutate_into_offspring_pool(0.5, None, None)),
-                     ('meta_mix_reproduce_mutate_into_offspring_pool', lambda: ml.meta_mix_reproduce_mutate_into_offspring_pool(0.5, 1.0, None, None)),
+                     ('meta_asex_reproduce_mutate_into_offspring_pool', lambda: ml.meta_asex_reproduce_mutate_into_offspring_pool(0.5)),
+                     ('meta_mix_reproduce_mutate_into_offspring_pool', lambda: ml.meta_mix_reproduce_mutate_into_offspring_pool(0.5, 1.0)),
                      ('meta_local_germinate_from_offspring_and_immigrant_pool', lambda: ml.meta_local_germinate_from_offspring_and_immigrant_pool())):
         n0, o0 = mc.indi_n(ml), mc.pool_n(ml, ('offspring_pool',))
         log = C.guarded('4 D wrapper %s' % name, fn)
@@ -1445,7 +1443,7 @@ def sec_markers(n_seeds=20):
             before = [(residents(h), list(h.offspring_marker_pool), list(h.immigrant_marker_pool), len(h.empty_site_pos_ls)) for h in dest]
             m0, r0 = mc.minted(FS), mc.recycled(FS)
             C.seed_all(900 + s)
-            isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None, is_remove=is_remove)
+            isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(is_remove=is_remove)
             born_total = 0
             for h, (res0, om0, im0, e0) in zip(dest, before):
                 new = [y for p, y in residents(h).items() if p not in res0]
@@ -1494,7 +1492,7 @@ def sec_probes():
             dest.offspring_marker_pool = good + [(pn, hn, kind)]
             isl.set[pn].set[hn].hab_clear_up_microsite_individuals()                               # the birth habitat loses every parent (e.g. a disturbance)
             m0, n0 = mc.minted(FS), dest.indi_num
-            try: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None); err = 'no error'
+            try: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(); err = 'no error'
             except Exception as e: err = '%s: %s' % (type(e).__name__, e)
             rows.append((err, dest.indi_num - n0, mc.minted(FS) - m0, C.guarded('6 D5 %s seed %d: check_world' % (kind, sd), mc.check_world, isl, FS, kind) is True))
             C.guarded('6 D5 %s seed %d: teardown' % (kind, sd), mc.teardown, isl, FS)
@@ -1506,8 +1504,8 @@ def sec_probes():
               'now also for the restored asexual / mix_asexual / mix_sexual markers. Not reachable in the experiments/model*.py order; v3 behaviour, not fixed in this round.', d5)
     # stale parent list: a parent leaves after dead selection (del_individual, as a colonization with is_remove=True does on a mainland), then a mixed birth runs
     out, lost_total = {}, 0
-    for label, call in (('hab_mix_asex_reproduce_mutate_with_num(all asexual parents)', lambda h: h.hab_mix_asex_reproduce_mutate_with_num(None, None, len(h.asexual_parent_pos_ls))),
-                        ('hab_mixed_reproduce_germinate(1.0, 0.0)', lambda h: h.hab_mixed_reproduce_germinate(1.0, 0.0, None, None))):
+    for label, call in (('hab_mix_asex_reproduce_mutate_with_num(all asexual parents)', lambda h: h.hab_mix_asex_reproduce_mutate_with_num(len(h.asexual_parent_pos_ls))),
+                        ('hab_mixed_reproduce_germinate(1.0, 0.0)', lambda h: h.hab_mixed_reproduce_germinate(1.0, 0.0))):
         h = mixed_hab(808, L=8, W=8, d=0.05)
         stale = h.asexual_parent_pos_ls[len(h.asexual_parent_pos_ls) // 2]
         gone = h.set['microsite_individuals'][stale[0]][stale[1]]; h.del_individual(*stale)

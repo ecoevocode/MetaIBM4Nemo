@@ -49,8 +49,9 @@ def island_stats(meta):
     return sp, ph
 
 
-def time_loop(reproduce_mode, mainland1, mainland2, meta_object, rm, steps, on_step):
-    ''' the loop of experiments/model.py main() (logging / csv / plots dropped); rm = {'is_remove': False} or {} for the three calls whose v3 default was False '''
+def time_loop(reproduce_mode, mainland1, mainland2, meta_object, rm, steps, on_step, bargs=()):
+    ''' the loop of experiments/model.py main() (logging / csv / plots dropped); rm = {'is_remove': False} or {} for the three calls whose v3 default was False;
+        bargs = (mutation_rate, pheno_var_ls) for pure v3, () for NemoBackend (removed from its birth signatures) '''
     time_step = -1
     all_time_step = steps
     start_change_time, end_change_time = time_step + CHANGE_EVERY, all_time_step - CHANGE_EVERY
@@ -60,30 +61,30 @@ def time_loop(reproduce_mode, mainland1, mainland2, meta_object, rm, steps, on_s
         t0 = time.perf_counter()
         if reproduce_mode == 'asexual':
             mainland1.meta_dead_selection(g['base_dead_rate'], g['fitness_wid'], method='niche_gaussian')
-            mainland1.meta_mainland_asexual_birth_mutate_germinate(g['asexual_birth_rate'], g['mutation_rate'], g['pheno_var_ls'])
+            mainland1.meta_mainland_asexual_birth_mutate_germinate(g['asexual_birth_rate'], *bargs)
             mainland2.meta_dead_selection(g['base_dead_rate'], g['fitness_wid'], method='niche_gaussian')
-            mainland2.meta_mainland_asexual_birth_mutate_germinate(g['asexual_birth_rate'], g['mutation_rate'], g['pheno_var_ls'])
+            mainland2.meta_mainland_asexual_birth_mutate_germinate(g['asexual_birth_rate'], *bargs)
             meta_object.meta_dead_selection(g['base_dead_rate'], g['fitness_wid'], method='niche_gaussian')
             meta_object.meta_asex_reproduce_calculation_into_offspring_marker_pool(g['asexual_birth_rate'])
             if (time_step + 1) % change_time_step == 0 and start_change_time <= time_step <= end_change_time: meta_object.meta_offset_environmental_values(g['env_name_ls'], g['delta_mean_ls'], g['delta_var_ls'])
             meta_object.meta_colonize_from_propagules_rains(mainland1, g['propagules_rain_num'], **rm)
             meta_object.meta_colonize_from_propagules_rains(mainland2, g['propagules_rain_num'], **rm)
             meta_object.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool(g['dispersal_amomg_rate'], **rm)
-            meta_object.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(g['mutation_rate'], g['pheno_var_ls'], **rm)
+            meta_object.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(*bargs, **rm)
             meta_object.meta_disturbance_process_in_patches(g['patch_dist_rate'])
             meta_object.meta_clear_up_offspring_marker_and_immigrant_marker_pool()
         elif reproduce_mode == 'sexual':
             mainland1.meta_dead_selection(g['base_dead_rate'], g['fitness_wid'], method='niche_gaussian')
-            mainland1.meta_mainland_mixed_birth_mutate_germinate(g['asexual_birth_rate'], g['sexual_birth_rate'], g['mutation_rate'], g['pheno_var_ls'])
+            mainland1.meta_mainland_mixed_birth_mutate_germinate(g['asexual_birth_rate'], g['sexual_birth_rate'], *bargs)
             mainland2.meta_dead_selection(g['base_dead_rate'], g['fitness_wid'], method='niche_gaussian')
-            mainland2.meta_mainland_mixed_birth_mutate_germinate(g['asexual_birth_rate'], g['sexual_birth_rate'], g['mutation_rate'], g['pheno_var_ls'])
+            mainland2.meta_mainland_mixed_birth_mutate_germinate(g['asexual_birth_rate'], g['sexual_birth_rate'], *bargs)
             meta_object.meta_dead_selection(g['base_dead_rate'], g['fitness_wid'], method='niche_gaussian')
             meta_object.meta_mix_reproduce_calculation_with_offspring_marker_pool(g['asexual_birth_rate'], g['sexual_birth_rate'])
             if (time_step + 1) % change_time_step == 0 and start_change_time <= time_step <= end_change_time: meta_object.meta_offset_environmental_values(g['env_name_ls'], g['delta_mean_ls'], g['delta_var_ls'])
             meta_object.meta_colonize_from_propagules_rains(mainland1, g['propagules_rain_num'], **rm)
             meta_object.meta_colonize_from_propagules_rains(mainland2, g['propagules_rain_num'], **rm)
             meta_object.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool(g['dispersal_amomg_rate'], **rm)
-            meta_object.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(g['mutation_rate'], g['pheno_var_ls'], **rm)
+            meta_object.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(*bargs, **rm)
             meta_object.meta_disturbance_process_in_patches(g['patch_dist_rate'])
             meta_object.meta_clear_up_offspring_marker_and_immigrant_marker_pool()
         on_step(time_step, time.perf_counter() - t0)
@@ -177,7 +178,7 @@ def run(kind, branch, mode, seed, rep, out_path):
             try: C.mc.check_world([ml1, ml2, meta], fs, 't=%d' % t); rec['checks'].append([t, True, None])
             except AssertionError as e: rec['checks'].append([t, False, str(e)])
     t0 = time.time()
-    try: time_loop(branch, ml1, ml2, meta, rm, STEPS, on_step)
+    try: time_loop(branch, ml1, ml2, meta, rm, STEPS, on_step, bargs=(P['mutation_rate'], P['pheno_var_ls']) if kind == 'v3pure' else ())
     except Exception as e:
         import traceback
         rec['error'] = '%s: %s | %s' % (type(e).__name__, e, traceback.format_exc()[-1500:])

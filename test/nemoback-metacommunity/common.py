@@ -109,9 +109,9 @@ def rain_for(mainland, rate=0.001):
 def fill_pools(m, K_birth=1.0):
     ''' drive an initialized metacommunity into a state with empty sites + non-empty offspring / immigrant / dormancy / marker pools (current code only) '''
     m.meta_dead_selection(0.3, 0.5, 'niche_gaussian')
-    m.meta_sex_reproduce_mutate_into_offspring_pool(K_birth, None, None)
+    m.meta_sex_reproduce_mutate_into_offspring_pool(K_birth)
     m.meta_dormancy_process_from_offspring_pool_and_immigrant_pool()
-    m.meta_sex_reproduce_mutate_into_offspring_pool(K_birth, None, None)
+    m.meta_sex_reproduce_mutate_into_offspring_pool(K_birth)
     m.meta_dispersal_within_patch_from_offspring_to_immigrant_pool(0.4)
     m.meta_sex_reproduce_calculation_with_offspring_marker_pool(0.8)
     m.meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool(0.5)
@@ -233,10 +233,10 @@ def pool_schedule(mainland, islands, t, rain, dorm=True, pairwise=None, m_within
     pw = (t % 2 == 1) if pairwise is None else pairwise
     col = 'pairwise_sexual_colonization_from_prpagules_rains' if pw else 'meta_colonize_from_propagules_rains'
     ops = [('mainland.meta_dead_selection', lambda: mainland.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
-           ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: mainland.meta_mainland_sexual_birth_mutate_germinate(1.0, None, None)),
+           ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: mainland.meta_mainland_sexual_birth_mutate_germinate(1.0)),
            ('islands.' + col, lambda: getattr(islands, col)(mainland, rain)),
            ('islands.meta_dead_selection', lambda: islands.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
-           ('islands.meta_sex_reproduce_mutate_into_offspring_pool', lambda: islands.meta_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)),
+           ('islands.meta_sex_reproduce_mutate_into_offspring_pool', lambda: islands.meta_sex_reproduce_mutate_into_offspring_pool(1.0)),
            ('islands.' + within, lambda: getattr(islands, within)(m_within)),
            ('islands.' + among, lambda: getattr(islands, among)(m_among, method=kernel[0], **kernel[1])),
            ('islands.' + germ, lambda: getattr(islands, germ)())]
@@ -254,7 +254,7 @@ def marker_schedule(mainland, islands, t, rain, pairwise=None, m_within=0.3, m_a
     pw = (t % 2 == 1) if pairwise is None else pairwise
     col = 'pairwise_sexual_colonization_from_prpagules_rains' if pw else 'meta_colonize_from_propagules_rains'
     return [('mainland.meta_dead_selection', lambda: mainland.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
-            ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: mainland.meta_mainland_sexual_birth_mutate_germinate(1.0, None, None)),
+            ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: mainland.meta_mainland_sexual_birth_mutate_germinate(1.0)),
             ('islands.meta_dead_selection', lambda: islands.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
             ('islands.meta_sex_reproduce_calculation_with_offspring_marker_pool', lambda: islands.meta_sex_reproduce_calculation_with_offspring_marker_pool(birth)),
             ('islands.' + col, lambda: getattr(islands, col)(mainland, rain)),
@@ -262,7 +262,7 @@ def marker_schedule(mainland, islands, t, rain, pairwise=None, m_within=0.3, m_a
             (('islands.dispersal_among_patches_in_global_habitat_network_from_offspring_marker_pool_to_immigrant_marker_pool', lambda: islands.dispersal_among_patches_in_global_habitat_network_from_offspring_marker_pool_to_immigrant_marker_pool(m_among, method=kernel[0], **kernel[1]))
              if network and t % 2 else
              ('islands.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool', lambda: islands.dispersal_aomng_patches_from_offspring_marker_pool_to_immigrant_marker_pool(m_among, method=kernel[0], **kernel[1]))),
-            ('islands.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', lambda: islands.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None)),
+            ('islands.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', lambda: islands.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool()),
             ('islands.meta_disturbance_process_in_patches', lambda: islands.meta_disturbance_process_in_patches(dist)),
             ('islands.meta_clear_up_offspring_marker_and_immigrant_marker_pool', islands.meta_clear_up_offspring_marker_and_immigrant_marker_pool)]
 

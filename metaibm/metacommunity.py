@@ -305,11 +305,11 @@ class metacommunity():
         return log_info
     
 #************************** for mainland only and do not contain dormant bank **************************************#
-    def meta_mainland_asexual_birth_mutate_germinate(self, asexual_birth_rate, mutation_rate, pheno_var_ls):
+    def meta_mainland_asexual_birth_mutate_germinate(self, asexual_birth_rate):
         ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_asexual_birth_germinate(asexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += patch_object.patch_asexual_birth_germinate(asexual_birth_rate)
         
         indi_num = self.get_meta_individual_num()
         empty_sites_num = self.show_meta_empty_sites_num()
@@ -317,11 +317,11 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def meta_mainland_sexual_birth_mutate_germinate(self, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def meta_mainland_sexual_birth_mutate_germinate(self, sexual_birth_rate):
         ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_sexual_birth_germinate(sexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += patch_object.patch_sexual_birth_germinate(sexual_birth_rate)
             
         indi_num = self.get_meta_individual_num()
         empty_sites_num = self.show_meta_empty_sites_num()
@@ -329,11 +329,11 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def meta_mainland_mixed_birth_mutate_germinate(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def meta_mainland_mixed_birth_mutate_germinate(self, asexual_birth_rate, sexual_birth_rate):
         ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_mixed_birth_germinate(asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += patch_object.patch_mixed_birth_germinate(asexual_birth_rate, sexual_birth_rate)
         
         indi_num = self.get_meta_individual_num()
         empty_sites_num = self.show_meta_empty_sites_num()
@@ -396,31 +396,31 @@ class metacommunity():
         #print(log_info)
         return log_info
 #******************** all hab in all patch in metacommunity, reproduce_mutate_process_into_offspring_pool ****************************************************#       
-    def meta_asex_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, mutation_rate, pheno_var_ls):
+    def meta_asex_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate):
         ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_asex_reproduce_mutate_into_offspring_pool(asexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += patch_object.patch_asex_reproduce_mutate_into_offspring_pool(asexual_birth_rate)
             
         log_info = '%s: there are %d individuals born into the offspring_pool; there are %d individuals in the offspring_pool \n'%(self.metacommunity_name, counter, self.meta_offspring_pool_individual_num())
         #print(log_info)
         return log_info
         
-    def meta_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate, mutation_rate, pheno_var_ls):  
+    def meta_sex_reproduce_mutate_into_offspring_pool(self, sexual_birth_rate):  
         ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_sex_reproduce_mutate_into_offspring_pool(sexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += patch_object.patch_sex_reproduce_mutate_into_offspring_pool(sexual_birth_rate)
         
         log_info = '%s: there are %d individuals born into the offspring_pool; there are %d individuals in the offspring_pool \n'%(self.metacommunity_name, counter, self.meta_offspring_pool_individual_num())
         #print(log_info)
         return log_info
             
-    def meta_mix_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls):
+    def meta_mix_reproduce_mutate_into_offspring_pool(self, asexual_birth_rate, sexual_birth_rate):
         ''' NemoBackend '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_mix_reproduce_mutate_into_offspring_pool(asexual_birth_rate, sexual_birth_rate, mutation_rate, pheno_var_ls)
+            counter += patch_object.patch_mix_reproduce_mutate_into_offspring_pool(asexual_birth_rate, sexual_birth_rate)
         
         log_info = '[Reproduction into offspring_pool] in %s: there are %d individuals born into the offspring_pool; there are %d individuals in the offspring_pool \n'%(self.metacommunity_name, counter, self.meta_offspring_pool_individual_num())
         #print(log_info)
@@ -776,7 +776,7 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(self, mutation_rate, pheno_var_ls, is_remove=True):
+    def meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(self, is_remove=True):
         ''' NemoBackend: germination individual marker randomly chosen from local habitst offspring pool + immigrant_pool and then birth process according to the marker information '''
         counter = 0
         for patch_id, patch_object in self.set.items():
@@ -794,13 +794,13 @@ class metacommunity():
                     birth_h_object = self.set[birth_patch_id].set[birth_h_id]  # birth place h_object
                     
                     if reproduce_mode == 'asexual':
-                        indi_object = birth_h_object.hab_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]                # NemoBackend Methods: indfactory.make_clone()
+                        indi_object = birth_h_object.hab_asex_reproduce_mutate_with_num(num=1)[0]                # NemoBackend Methods: indfactory.make_clone()
                     elif reproduce_mode == 'sexual':
-                        indi_object = birth_h_object.hab_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]                 # NemoBackend Methods: indfactory.make_offspring()
+                        indi_object = birth_h_object.hab_sex_reproduce_mutate_with_num(num=1)[0]                 # NemoBackend Methods: indfactory.make_offspring()
                     elif reproduce_mode == 'mix_asexual':
-                        indi_object = birth_h_object.hab_mix_asex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]            # NemoBackend Methods: indfactory.make_clone()
+                        indi_object = birth_h_object.hab_mix_asex_reproduce_mutate_with_num(num=1)[0]            # NemoBackend Methods: indfactory.make_clone()
                     elif reproduce_mode == 'mix_sexual':
-                        indi_object = birth_h_object.hab_mix_sex_reproduce_mutate_with_num(mutation_rate, pheno_var_ls, num=1)[0]             # NemoBackend Methods: indfactory.make_offspring()
+                        indi_object = birth_h_object.hab_mix_sex_reproduce_mutate_with_num(num=1)[0]             # NemoBackend Methods: indfactory.make_offspring()
                     
                     h_object.add_individual(indi_object=indi_object, len_id=row_id, wid_id=col_id)
                     if is_remove: getattr(h_object, pool_label).remove(indi_marker)

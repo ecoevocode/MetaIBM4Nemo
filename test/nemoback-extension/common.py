@@ -165,10 +165,10 @@ def pool_ops(ml, isl, rain, m_among, kern, kw, dist=0.05, net_call=None):
     ''' individual-pool schedule (v3 order) with the network offspring dispersal; net_call(isl) overrides the network call (reference classes) '''
     net = net_call or (lambda: getattr(isl, OFF)(m_among, method=kern, **kw))
     return [('mainland.meta_dead_selection', lambda: ml.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
-            ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1.0, None, None)),
+            ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1.0)),
             ('islands.meta_colonize_from_propagules_rains', lambda: isl.meta_colonize_from_propagules_rains(ml, rain)),
             ('islands.meta_dead_selection', lambda: isl.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
-            ('islands.meta_sex_reproduce_mutate_into_offspring_pool', lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)),
+            ('islands.meta_sex_reproduce_mutate_into_offspring_pool', lambda: isl.meta_sex_reproduce_mutate_into_offspring_pool(1.0)),
             ('islands.meta_dispersal_within_patch_from_offspring_to_immigrant_pool', lambda: isl.meta_dispersal_within_patch_from_offspring_to_immigrant_pool(0.3)),
             (OFF, net),
             ('islands.meta_local_germinate_from_offspring_and_immigrant_pool', lambda: isl.meta_local_germinate_from_offspring_and_immigrant_pool()),
@@ -181,13 +181,13 @@ def marker_ops(ml, isl, rain, m_among, kern, kw, is_remove=True, dist=0.02, net_
     ''' marker schedule (experiments/model-sloss-GRFE.py order, sexual) with the network marker dispersal '''
     net = net_call or (lambda: getattr(isl, MARK)(m_among, method=kern, is_remove=is_remove, **kw))
     return [('mainland.meta_dead_selection', lambda: ml.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
-            ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1.0, None, None)),
+            ('mainland.meta_mainland_sexual_birth_mutate_germinate', lambda: ml.meta_mainland_sexual_birth_mutate_germinate(1.0)),
             ('islands.meta_dead_selection', lambda: isl.meta_dead_selection(0.1, 0.5, 'niche_gaussian')),
             ('islands.meta_sex_reproduce_calculation_with_offspring_marker_pool', lambda: isl.meta_sex_reproduce_calculation_with_offspring_marker_pool(0.8)),
             ('islands.meta_colonize_from_propagules_rains', lambda: isl.meta_colonize_from_propagules_rains(ml, rain)),
             ('islands.meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool', lambda: isl.meta_dispersal_within_patch_from_offspring_marker_to_immigrant_marker_pool(0.3)),
             (MARK, net),
-            ('islands.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', lambda: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool(None, None)),
+            ('islands.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool', lambda: isl.meta_local_germinate_and_birth_from_offspring_marker_and_immigrant_marker_pool()),
             ('islands.meta_disturbance_process_in_patches', lambda: isl.meta_disturbance_process_in_patches(dist)),
             ('islands.meta_clear_up_offspring_marker_and_immigrant_marker_pool', lambda: isl.meta_clear_up_offspring_marker_and_immigrant_marker_pool())]
 

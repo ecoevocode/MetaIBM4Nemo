@@ -262,7 +262,7 @@ def report():
          '- conda env `metaibm-nemo-test2`; every script in its own process with `PYTHONDONTWRITEBYTECODE=1`', '']
     L += table(['changed file (working tree)', 'md5'], [('`%s`' % f, '`%s`' % h) for f, h in sorted(env['changed'].items())]) + ['']
     L += ['- decisions under test: D1 `is_remove` defaults stay True; D2 births into `offspring_pool` round with `int(x + U)`; D3 `hab_mixed_reproduce_germinate` makes exactly min(empty, a + s) offspring '
-          '(asex_num = min(a, np.around(E a / (a + s))), sex_num = min(s, E - asex_num)), all placed; D4 `mutation_rate` / `pheno_var_ls` kept in the interface, unused; D5 a birth habitat without parents raises `ValueError` (v3 behaviour, not fixed here)', '']
+          '(asex_num = min(a, np.around(E a / (a + s))), sex_num = min(s, E - asex_num)), all placed; D4 `mutation_rate` / `pheno_var_ls` removed from the interface; D5 a birth habitat without parents raises `ValueError` (v3 behaviour, not fixed here)', '']
     # ---------------------------------------------------------------- own results
     tot_c = sum(r['checks'] or 0 for r in own_rows); tot_f = sum(r['failed'] or 0 for r in own_rows)
     L += ['## Results: %d checks, %d failed' % (tot_c, tot_f), '']

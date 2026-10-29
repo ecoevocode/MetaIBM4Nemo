@@ -40,7 +40,7 @@ def v3_step(p, F, variant, dorm, t, rng, disturb_p=0.0, rate=0.5, check=True, ta
     chk = (lambda ph: check_invariants(p, fs, '%s t=%d %s' % (tag, t, ph))) if check else (lambda ph: None)
     r0 = recycled(F)
     d = p.patch_dead_selection(0.1, 0.5, 'niche_gaussian'); assert d == recycled(F) - r0, tag + ' dead != recycled'; chk('dead selection')
-    b = p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None); assert b == pool_n(p, ('offspring_pool',)), tag + ' reproduce return'; chk('reproduce')
+    b = p.patch_sex_reproduce_mutate_into_offspring_pool(1.0); assert b == pool_n(p, ('offspring_pool',)), tag + ' reproduce return'; chk('reproduce')
     m0 = minted(F)
     p.patch_sex_reproduce_calculation_into_offspring_marker_pool(0.6)
     p.patch_dispersal_within_from_offspring_marker_pool_to_immigrant_marker_pool(rate, t % 2 == 0)
@@ -102,9 +102,9 @@ def section_initialize():
     check_invariants(p, list(F.values()), 'init')
     out['init_female_of_90'] = nf
     # fill the pools, then re-initialize: residents recycled, pools kept, factories balanced
-    p.patch_dead_selection(0.3, 0.5, 'niche_gaussian'); p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+    p.patch_dead_selection(0.3, 0.5, 'niche_gaussian'); p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)
     p.patch_dormancy_process_from_offspring_pool_and_immigrant_pool()
-    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)
     p.migrants_to_patch_into_habs_immigrant_pool([F['sp2'].make_founder('female', 99) for _ in range(6)])
     residents = [x for h in habs(p) for x in micro(h)]
     pools = {(h.name, q): list(getattr(h, q)) for h in habs(p) for q in POOLS}
@@ -145,7 +145,7 @@ def section_reproduction():
         by_h = {h.name: {x.individual_id: x for x in micro(h)} for h in habs(p)}
         tables = {i: (x.gender, x.species_id, [x.genotype_table(a) for a in range(2)]) for d in by_h.values() for i, x in d.items()}
         m0 = sg.minted_num
-        r = p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+        r = p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)
         assert r == sum(len(h.offspring_pool) for h in habs(p)) == sg.minted_num - m0, 'reproduce return != offspring minted'
         for h in habs(p):
             for k in h.offspring_pool:
@@ -170,7 +170,7 @@ def section_reproduction():
         before = {h.name: {x.individual_id: x for x in micro(h)} for h in habs(p)}
         ids_before = {id(x) for h in habs(p) for x in micro(h)}
         empty, m0 = sum(len(h.empty_site_pos_ls) for h in habs(p)), sg.minted_num
-        r = p.patch_sexual_birth_germinate(1.0, None, None)
+        r = p.patch_sexual_birth_germinate(1.0)
         assert r == sg.minted_num - m0 and r <= empty, 'direct birth count'
         new = [(h, x) for h in habs(p) for x in micro(h) if id(x) not in ids_before]
         assert len(new) == r
@@ -187,7 +187,7 @@ def section_reproduction():
     # fractional rate: per habitat lo or lo+1
     pairs = [h.hab_sexual_pairwise_parents_num() for h in habs(p)]
     for t in range(50):
-        np.random.seed(900 + t); r = p.patch_sex_reproduce_mutate_into_offspring_pool(0.37, None, None)
+        np.random.seed(900 + t); r = p.patch_sex_reproduce_mutate_into_offspring_pool(0.37)
         assert all(int(n * 0.37) <= len(h.offspring_pool) <= int(n * 0.37) + 1 for n, h in zip(pairs, habs(p))) and r == pool_n(p, ('offspring_pool',))
     check_invariants(p, sg, 'fractional')
     recycle_everything(p)
@@ -206,7 +206,7 @@ def section_two_species():
     for t in range(60):
         p.patch_dead_selection(0.15, 0.5, 'niche_gaussian')
         by_h = {h.name: {x.individual_id: x for x in micro(h)} for h in habs(p)}
-        p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+        p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)
         for h in habs(p):
             for k in h.offspring_pool:
                 m, f = by_h[h.name][k.mother_id], by_h[h.name][k.father_id]
@@ -282,7 +282,7 @@ def section_getters():
         assert a[0] == b[0] and x.gender == 'female' and y.gender == 'male' and x.species_id == y.species_id
     for (a, b) in p.get_patch_pairwise_empty_sites_ls():
         assert a[0] == b[0] and a != b and p.set[a[0]].set['microsite_individuals'][a[1]][a[2]] is None
-    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None); p.patch_dormancy_process_from_offspring_pool_to_dormancy_pool(); p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+    p.patch_sex_reproduce_mutate_into_offspring_pool(1.0); p.patch_dormancy_process_from_offspring_pool_to_dormancy_pool(); p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)
     op, dp, odp = p.get_patch_offspring_pool(), p.get_patch_dormancy_pool(), p.get_patch_offspring_and_dormancy_pool()
     assert [id(x) for x in op] == [id(x) for h in habs(p) for x in h.offspring_pool] and [id(x) for x in dp] == [id(x) for h in habs(p) for x in h.dormancy_pool]
     assert sorted(map(id, odp)) == sorted(map(id, op + dp))
@@ -336,7 +336,7 @@ def section_memory():
     for t in range(STEPS):
         live_before = set(map(id, held(p)))
         p.patch_dead_selection(0.2, 0.5, 'niche_gaussian')
-        p.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None)
+        p.patch_sex_reproduce_mutate_into_offspring_pool(1.0)
         born = [k for h in habs(p) for k in h.offspring_pool]
         addrs = [(k.species_id, int(k.nemo_indi_obj.this)) for k in born]
         live = held([p, ref])
@@ -421,8 +421,8 @@ def section_fuzz():
             if occ:
                 h_id, i, j = rng.choice(occ); h = p.set[h_id]; x = h.set['microsite_individuals'][i][j]; h.del_individual(i, j); x.recycle()
         OPS = {'dead': lambda: p.patch_dead_selection(rng.choice((0.0, 0.1, 0.5, 1.0)), rng.choice((0.2, 0.5, 2.0)), rng.choice(('niche_gaussian', 'neutral_uniform'))),
-               'reproduce': lambda: p.patch_sex_reproduce_mutate_into_offspring_pool(rng.choice((0.0, 0.3, 0.77, 1.0)), None, None),
-               'birth_germinate': lambda: p.patch_sexual_birth_germinate(rng.choice((0.5, 1.0)), None, None),
+               'reproduce': lambda: p.patch_sex_reproduce_mutate_into_offspring_pool(rng.choice((0.0, 0.3, 0.77, 1.0))),
+               'birth_germinate': lambda: p.patch_sexual_birth_germinate(rng.choice((0.5, 1.0))),
                'marker_birth': lambda: p.patch_sex_reproduce_calculation_into_offspring_marker_pool(rng.random()),
                'marker_disp': lambda: p.patch_dispersal_within_from_offspring_marker_pool_to_immigrant_marker_pool(rng.random(), rng.random() < 0.5),
                'O->I': lambda: p.patch_dispersal_within_from_offspring_pool_to_immigrant_pool(rng.choice((0.0, 0.3, 1.0))),
@@ -436,7 +436,7 @@ def section_fuzz():
                'disturbance': p.patch_disturbance_process, 'initialize': lambda: p.patch_initialize(F, TABLE, rng.choice(('sexual', 'asexual'))),
                'immigrants_in': lambda: p.migrants_to_patch_into_habs_immigrant_pool([rng.choice(fs).make_founder(rng.choice(('male', 'female')), rng.randint(0, 9)) for _ in range(rng.randint(0, 6))]),
                'emigrate_to_q': lambda: q.migrants_to_patch_into_habs_immigrant_pool(p.sample_offspring_without_replacement(rng.randint(0, 5), rng.choice((('offspring_pool',), ('offspring_pool', 'dormancy_pool'))))),
-               'q_step': lambda: (q.patch_dead_selection(0.2, 0.5, 'niche_gaussian'), q.patch_sex_reproduce_mutate_into_offspring_pool(1.0, None, None),
+               'q_step': lambda: (q.patch_dead_selection(0.2, 0.5, 'niche_gaussian'), q.patch_sex_reproduce_mutate_into_offspring_pool(1.0),
                                   q.patch_local_germinate_from_offspring_immigrant_and_dormancy_pool(), q.patch_dormancy_process_from_offspring_pool_and_immigrant_pool()),
                'kill_one': kill_one}
         names = list(OPS)
@@ -453,12 +453,12 @@ def section_fuzz():
     return out
 
 
-ASEX_MIX = [('patch_asexual_birth_germinate', lambda p: p.patch_asexual_birth_germinate(0.5, 0.01, [0.01, 0.01])),
-            ('patch_mixed_birth_germinate', lambda p: p.patch_mixed_birth_germinate(0.5, 0.5, 0.01, [0.01, 0.01])),
+ASEX_MIX = [('patch_asexual_birth_germinate', lambda p: p.patch_asexual_birth_germinate(0.5)),
+            ('patch_mixed_birth_germinate', lambda p: p.patch_mixed_birth_germinate(0.5, 0.5)),
             ('patch_asex_reproduce_calculation_into_offspring_marker_pool', lambda p: p.patch_asex_reproduce_calculation_into_offspring_marker_pool(0.5)),
             ('patch_mix_reproduce_calculation_into_offspring_marker_pool', lambda p: p.patch_mix_reproduce_calculation_into_offspring_marker_pool(0.5, 0.5)),
-            ('patch_asex_reproduce_mutate_into_offspring_pool', lambda p: p.patch_asex_reproduce_mutate_into_offspring_pool(0.5, 0.01, [0.01, 0.01])),
-            ('patch_mix_reproduce_mutate_into_offspring_pool', lambda p: p.patch_mix_reproduce_mutate_into_offspring_pool(0.5, 0.5, 0.01, [0.01, 0.01]))]
+            ('patch_asex_reproduce_mutate_into_offspring_pool', lambda p: p.patch_asex_reproduce_mutate_into_offspring_pool(0.5)),
+            ('patch_mix_reproduce_mutate_into_offspring_pool', lambda p: p.patch_mix_reproduce_mutate_into_offspring_pool(0.5, 0.5))]
 
 
 def probe(i):
@@ -520,7 +520,7 @@ def section_edges_known():
     errs = {}
     for label, call in (('tuple mean_env_ls in table', lambda: make_patch(1, L=2, means=[(0.2, 0.2)]).patch_initialize(F, [(0.2, 0.2)])),
                         ("reproduce_mode='Sexual'", lambda: p.patch_initialize(F, TABLE, 'Sexual')),
-                        ('sexual_birth_rate 1.5', lambda: (p.patch_initialize(F, TABLE), p.patch_sex_reproduce_mutate_into_offspring_pool(1.5, None, None)))):
+                        ('sexual_birth_rate 1.5', lambda: (p.patch_initialize(F, TABLE), p.patch_sex_reproduce_mutate_into_offspring_pool(1.5)))):
         m0 = minted(F)
         try: call(); errs[label] = 'no error'
         except Exception as e: errs[label] = type(e).__name__
