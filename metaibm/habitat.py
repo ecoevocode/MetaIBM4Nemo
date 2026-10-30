@@ -55,7 +55,7 @@ class habitat():
             mean_e_index = self.mean_env_ls[index]
             var_e_index = self.var_env_ls[index]
             name_e_index = self.env_types_name[index]
-            microsite_e_values = np.random.normal(loc=0, scale=var_e_index, size=(self.length, self.width)) + mean_e_index
+            microsite_e_values = np.random.normal(loc=0, scale=np.sqrt(var_e_index), size=(self.length, self.width)) + mean_e_index
             self.set[name_e_index] = microsite_e_values
 
         microsite_individuals = self._empty_microsite_grid()
@@ -73,7 +73,7 @@ class habitat():
             self.mean_env_ls[env_index] = mean_i          # setting new mean value
             self.var_env_ls[env_index] = var_i            # setting new var value
             
-            new_microsite_e_values = np.random.normal(loc=0, scale=var_i, size=(self.length, self.width)) + mean_i # set the new env landscape of the habitat
+            new_microsite_e_values = np.random.normal(loc=0, scale=np.sqrt(var_i), size=(self.length, self.width)) + mean_i # set the new env landscape of the habitat
             self.set[name_i] = new_microsite_e_values # update all the microsites env val in the habitat
             
         return 0
