@@ -187,7 +187,7 @@ class habitat():
         self.hab_clear_up_microsite_individuals()    # NemoBackend Methods: recycle residents, empty all microsites (re-initializing mid-simulation is rare, but safe)
         for row in range(self.length):
             for col in range(self.width):
-                if reproduce_mode == 'sexual': gender = random.sample(('male', 'female'), 1)[0]
+                if reproduce_mode in ('sexual', 'mix'): gender = random.sample(('male', 'female'), 1)[0]
                 elif reproduce_mode == 'asexual': gender = 'female'
                 self.add_individual(indfactory.make_founder(gender, self.global_index), row, col)
         return 0 
