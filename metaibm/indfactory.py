@@ -2,7 +2,7 @@
 ''' indfactory -- one species = one boot sim = one trait prototype = one Nemo IndFactory. The only module of MetaIBM-Nemo that imports pynemo.
 '''
 
-import pynemo
+import numpy as np
 from pynemo import nemo
 from pynemo.sim import NemoSim
 
@@ -14,7 +14,7 @@ class indfactory():
     ''' Class Attributes '''
     _nemo_id_probe = nemo.Individual()         # access to getcurrentID()/setCurrentID() on Nemo's static Individual::currentID; created once at import (takes one ID)
 
-    def __init__(self, species_id, pheno_name_ls, nemo_params, trait_keys=('quant',), seed=None):
+    def __init__(self, species_id, pheno_name_ls, nemo_params, trait_keys=('quant',), seed=None, metaibm_nemo_params=None):
 
         ''' MetaIBM Attributes '''
         self.species_id = species_id
@@ -24,10 +24,15 @@ class indfactory():
         ''' Nemo Attributes '''
         self.trait_keys = trait_keys
         self.nemo_params = nemo_params          # pynemo.params.SimParameters: record only, do not edit after boot
+        self.nemo_params_dict = dict(nemo_params._params)    # CACHE of nemo_params: e.g., {'quanti_traits': '2', 'quanti_allele_model': 'diallelic'}
         
         self.traits_index = {}                  # CACHE of IndFactory::getTraitIndex(), avoiding frequent SWIG call; e.g., {'ntrl': 0, 'quant': 1}, sorted by type string
         self._nemo_simulator = None             # pynemo.sim.NemoSim (Python wrapper): boot fixture, never stepped
         self._nemo_indfactory = None            # pynemo.nemo.IndFactory (C++ objects)
+
+        ''' MetaIBM-Nemo Attributes '''
+        self.metaibm_nemo_params = dict(metaibm_nemo_params or {})   # dict: Nemo parameters that MetaIBM re-implements itself (Nemo never sees them)
+        self._quanti_seq_pos = None                                  # CACHE: list of int, sequence position of quanti locus k (quanti_init_freq order, trait by trait)
         
         ''' Individual Counters (for leak checks) '''
         self.minted_num = 0                     # MetaIBM-Nemo individuals created so far
@@ -44,7 +49,6 @@ class indfactory():
     def __repr__(self):
         return '<indfactory species_id=%r traits=%r>' % (self.species_id, tuple(sorted(self.traits_index)))
     
-        
     ##********** Nemo's static Individual::currentID Interface *************
     @classmethod
     def get_current_individual_id(cls):
@@ -61,7 +65,7 @@ class indfactory():
     ##***************************** boot ***********************************
     def _check_quanti_traits_num(self):
         ''' (quant) traits_num must equal the number of quanti trait axes (0 without 'quant'), otherwise get_phenotype(i) reads past the last axis '''
-        quanti_traits = int(dict(self.nemo_params._params).get('quanti_traits', 0)) if 'quant' in self.trait_keys else 0
+        quanti_traits = int(self.nemo_params_dict.get('quanti_traits', 0)) if 'quant' in self.trait_keys else 0
         if self.traits_num != quanti_traits or ('quant' in self.trait_keys and quanti_traits < 1): raise ValueError('species %r: trait_keys=%r, %d pheno names, %d quanti trait axes' % (self.species_id, self.trait_keys, self.traits_num, quanti_traits))
 
     def _check_trait_prototypes_built(self):
@@ -109,12 +113,32 @@ class indfactory():
         indi_obj._require_alive()
         if indi_obj.indfactory is not self: raise RuntimeError('individual of species %r does not belong to the indfactory of species %r' % (indi_obj.species_id, self.species_id))
 
+    def _use_quanti_init_freq(self):
+        ''' whether make_founder() redraws the quanti alleles from metaibm_nemo_params['quanti_init_freq']; RETURN: bool '''
+        if self.metaibm_nemo_params.get('quanti_init_freq') is None: return False
+        if self.nemo_params_dict.get('quanti_allele_model') in ('continuous', 'continuous_in_place', 'continuous_HC') or self.nemo_params_dict.get('quanti_pleiotropy') in ('full', 'f', 'var', 'variable', 'v'):
+            raise ValueError('species %r: quanti_init_freq requires a di-allelic model without pleiotropy' % (self.species_id,))
+        return self.nemo_params_dict.get('quanti_allele_model') in ('diallelic', 'diallelic_HC', 'diallelic_asymmetrical') 
+
+    def _set_quanti_init_alleles(self, nemo_indi_obj):
+        ''' redraw every quanti allele of a fresh founder on its own: allele 0 with P = metaibm_nemo_params['quanti_init_freq'][k], else allele 1 (TTQuanti::set_allele_bit); then recompute the phenotype
+            INPUT:  nemo_indi_obj = pynemo.nemo.Individual -- fresh from create_first_gen(), not wrapped yet '''
+        nemo_trait = nemo_indi_obj.getTrait(self.traits_index['quant'])
+        if self._quanti_seq_pos is None:
+            self._quanti_seq_pos = [nemo_trait.get_locus_seq_pos(locus, trait_dim) for trait_dim in range(self.traits_num) for locus in range(nemo_trait.get_num_loci(trait_dim))]
+        is_allele_1 = np.random.random((2, len(self._quanti_seq_pos))) >= np.asarray(self.metaibm_nemo_params['quanti_init_freq'], dtype=float)      # (strand, locus) bool
+        for strand in (0, 1):
+            for k, pos in enumerate(self._quanti_seq_pos):
+                nemo_trait.set_allele_bit(pos, strand, bool(is_allele_1[strand, k]))
+        nemo_trait.set_value()                                                     # phenotype = new genotype + a new Ve draw
+
     def make_founder(self, gender, home_habitat=0):
         ''' one founder with random genotypes drawn from this species' nemo_params (e.g. quanti_init_value)
             INPUT:  gender = 'female' or 'male'; home_habitat = int 0-65535 -- habitat.global_index of its birthplace (as Nemo's homepatch)
             RETURN: individual -- parent IDs are sentinels counting down from ULONG_MAX '''
         nemo_indi_obj = self._nemo_indfactory.makeNewIndividual(None, None, self.metaibm2nemo_sex(gender), home_habitat)   # no parents
         nemo_indi_obj.create_first_gen()
+        if self._use_quanti_init_freq(): self._set_quanti_init_alleles(nemo_indi_obj)
         return self._wrap_nemo_individual(nemo_indi_obj)
 
     def make_clone(self, mother_indi_obj, home_habitat=0):
