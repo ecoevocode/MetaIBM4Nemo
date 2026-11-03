@@ -39,7 +39,7 @@ class individual():
         if not self.is_alive: return '<individual species_id=%r recycled>' % (self.species_id,)
         return '<individual species_id=%r id=%d>' % (self.species_id, self.individual_id)
 
-    ##***************** Nemo-only interface ******************
+    ##***************** Nemo‘s interface ******************
     @property
     def individual_id(self):
         ''' RETURN: Nemo's ID of this individual object: assigned at birth, unique across one simulation '''
@@ -64,6 +64,15 @@ class individual():
             RETURN: pynemo.nemo.TTrait -- a live view, not a copy; never keep it after recycle() '''
         self._require_alive()
         return self.nemo_indi_obj.getTrait(self.indfactory.traits_index[trait_key])
+
+    # - - - - - - - - trait values readers - - - - - - - - #
+    def get_trait_value(self, trait_key, **kwargs):
+        ''' RETURN: value of one trait as stored by Nemo, in its own type; kwargs: trait_dim=i for 'quant' '''
+        if trait_key == 'quant':                              return self.get_trait('quant').get_phenotype(kwargs.pop('trait_dim', 0), **kwargs)   # float: P of axis trait_dim
+        elif trait_key in ('delet', 'dmi', 'fdisp', 'mdisp'): return self.get_trait(trait_key).get_value(**kwargs)        # float
+        elif trait_key == 'wolb':                             return self.get_trait(trait_key).get_wolb_value(**kwargs)   # bool
+        elif trait_key == 'ntrl':                             return self.get_trait(trait_key).getValue(**kwargs)         # None: Nemo stores no value
+        else: raise ValueError("get_trait_value(%r) unsupported; trait_key = 'quant'/'ntrl'/'delet'/'dmi'/'fdisp'/'mdisp'/'wolb'; quant takes trait_dim=i" % trait_key)
 
     # - - - - - - - - allele readers - - - - - - - - #
     def get_trait_alleles(self, trait_key, method, **kwargs):
@@ -106,7 +115,7 @@ class individual():
         ''' RETURN: bool -- Wolbachia infection (no loci), inherited from the mother; set by Nemo's inoculation LCE, which MetaIBM does not run '''
         return bool(self.get_trait('wolb').get_allele(0, 0))
 
-    ##*************** Nemo-MetaIBM interface ***************
+    ##*************** MetaIBM legacy interface (rebuilt by reading Nemo) ***************
     @property
     def gender(self):
         ''' RETURN: 'female' or 'male' -- read from Nemo, fixed at birth '''
@@ -115,13 +124,13 @@ class individual():
 
     @property
     def phenotype_set(self):
-        ''' read-only, read live from Nemo; the i-th quanti trait axis is named pheno_names_ls[i]
+        ''' ONLY 'quant': read live from Nemo; the i-th quanti trait axis is named pheno_names_ls[i]
             RETURN: {pheno_name: phenotype} -- writing to it raises TypeError '''
         trait = self.get_trait('quant')
         return MappingProxyType({pheno_name: trait.get_phenotype(i) for i, pheno_name in enumerate(self.pheno_names_ls)})
 
     def get_indi_phenotype_ls(self):
-        ''' phenotypes in trait order -- what selection reads
+        ''' ONLY 'quant': phenotypes in trait order -- what selection reads
             RETURN: list of float, length traits_num '''
         trait = self.get_trait('quant')
         return [trait.get_phenotype(i) for i in range(self.traits_num)]
