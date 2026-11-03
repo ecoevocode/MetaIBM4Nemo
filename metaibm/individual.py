@@ -6,7 +6,7 @@ ATTENTION:
 2. Never keep nemo_indi_obj or a trait from get_trait() outside this class: after recycle() Nemo reuses that memory for a newborn.
 3. MetaIBM bookkeeping first, recycle() last: del_individual() reads gender, which is unreadable after recycle().
 '''
-
+import numpy as np
 from types import MappingProxyType
 
 class individual():
@@ -65,20 +65,46 @@ class individual():
         self._require_alive()
         return self.nemo_indi_obj.getTrait(self.indfactory.traits_index[trait_key])
 
-    def genotype_table(self, trait_dim=0):
-        ''' QUANTI ONLY: allele values on both chromosome copies at each locus of one quanti trait axis
-            INPUT:  trait_dim -- index of the trait axis, 0 ... traits_num-1
-            RETURN: list of (strand0, strand1) -- one tuple (of allele values) per locus '''
-        trait = self.get_trait('quant')
-        positions = [trait.get_locus_seq_pos(locus, trait_dim) for locus in range(trait.get_num_loci(trait_dim))] # get loci_num of this axis, then their positions in the allele sequence
-        return [(trait.get_allele_value(pos, 0), trait.get_allele_value(pos, 1)) for pos in positions]
+    # - - - - - - - - allele readers - - - - - - - - #
+    def get_trait_alleles(self, trait_key, method, **kwargs):
+        ''' RETURN: alleles of one trait via TTrait::get_allele() or get_allele_value(); kwargs: trait_dim=i for 'quant' '''
+        if trait_key == 'quant' and method == 'get_allele_value':              return self._get_quanti_allele_values_array(**kwargs)            # np.ndarray float,     shape=(n_loci, 2)
+        elif trait_key == 'quant' and method == 'get_allele':                  return self._get_quanti_allele_states_array(**kwargs)            # np.ndarray int (0/1), shape=(n_loci, 2)
+        elif trait_key in ('ntrl', 'delet', 'dmi') and method == 'get_allele': return self._get_allele_states_array(trait_key, **kwargs)        # np.ndarray int,       shape=(n_loci, 2)
+        elif trait_key in ('fdisp', 'mdisp') and method == 'get_allele_value': return self._get_disp_allele_values_array(trait_key, **kwargs)   # np.ndarray float,     shape=(1, 2)
+        elif trait_key == 'wolb' and method == 'get_allele':                   return self._get_wolb_infection_state(**kwargs)                  # bool value,           shape=()
+        else: raise ValueError("get_trait_alleles(%r, %r) unsupported; 'get_allele_value': quant/fdisp/mdisp; 'get_allele': quant/ntrl/delet/dmi/wolb; quant takes trait_dim=i" % (trait_key, method))
 
-    def allele_table(self, trait_key, num_loci):
-        ''' allele identities on both chromosome copies at each locus of given trait_key (for quanti use genotype_table)
-            INPUT:  trait_key = 'ntrl', 'delet' or 'dmi'; num_loci = int -- must equal ntrl_loci, delet_loci or dmi_loci
-            RETURN: list of (strand0, strand1) -- one tuple (of allele identities) per locus '''
+    def _get_quanti_allele_values_array(self, trait_dim=0):
+        ''' allele values at each locus of quanti trait axis trait_dim (0 ... traits_num-1)
+            RETURN: np.ndarray of float, shape (n_loci, 2) -- row = locus, column = strand (0 paternal, 1 maternal) '''
+        trait = self.get_trait('quant')
+        positions = [trait.get_locus_seq_pos(locus, trait_dim) for locus in range(trait.get_num_loci(trait_dim))]   # loci of this axis -> sequence positions
+        return np.array([(trait.get_allele_value(pos, 0), trait.get_allele_value(pos, 1)) for pos in positions], dtype=float).reshape(-1, 2)
+
+    def _get_quanti_allele_states_array(self, trait_dim=0):
+        ''' allelic states (0/1) at each locus of quanti trait axis trait_dim; di-allelic only (continuous: all 0)
+            RETURN: np.ndarray of int, shape (n_loci, 2) -- row = locus, column = strand (0 paternal, 1 maternal) '''
+        trait = self.get_trait('quant')
+        positions = [trait.get_locus_seq_pos(locus, trait_dim) for locus in range(trait.get_num_loci(trait_dim))]   # loci of this axis -> sequence positions
+        return np.array([(trait.get_allele(pos, 0), trait.get_allele(pos, 1)) for pos in positions], dtype=int).reshape(-1, 2)
+
+    def _get_allele_states_array(self, trait_key):
+        ''' allelic states (0-based) at each locus of trait_key = 'ntrl', 'delet' or 'dmi' (not 'quant')
+            RETURN: np.ndarray of int, shape (n_loci, 2) -- row = locus, column = strand (0 paternal, 1 maternal) '''
         trait = self.get_trait(trait_key)
-        return [(trait.get_allele(locus, 0), trait.get_allele(locus, 1)) for locus in range(num_loci)]
+        num_loci = self.indfactory._nemo_indfactory.getTraitPrototype(trait_key).get_locus_number()                 # one sequence: locus == position
+        return np.array([(trait.get_allele(locus, 0), trait.get_allele(locus, 1)) for locus in range(num_loci)], dtype=int).reshape(-1, 2)
+
+    def _get_disp_allele_values_array(self, trait_key='fdisp'):
+        ''' allele values (dispersal rates, 0 ... 1) at the single locus of trait_key = 'fdisp' or 'mdisp' (every individual carries both)
+            RETURN: np.ndarray of float, shape (1, 2) -- column = strand (0 maternal, 1 paternal: reversed vs the other traits) '''
+        trait = self.get_trait(trait_key)
+        return np.array([(trait.get_allele_value(0, 0), trait.get_allele_value(0, 1))], dtype=float)
+
+    def _get_wolb_infection_state(self):
+        ''' RETURN: bool -- Wolbachia infection (no loci), inherited from the mother; set by Nemo's inoculation LCE, which MetaIBM does not run '''
+        return bool(self.get_trait('wolb').get_allele(0, 0))
 
     ##*************** Nemo-MetaIBM interface ***************
     @property
