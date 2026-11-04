@@ -1,0 +1,75 @@
+{
+    "non_genetic": {
+        "replicates":                    1,
+        "generations":                   1,
+        "patch_number":                  1,
+        "patch_capacity":                1,
+        "aging":                         1,
+        "run_mode":                      "silent",
+        "root_dir":                      "nemo_cache",
+        "logfile":                       "nemo_cache/nemo.log",
+        "filename":                      "sp4"
+    },
+    "quanti": {
+        "quanti_traits":                 2,
+        "quanti_loci":                   40,
+        "quanti_loci_per_trait":         "_UNSET",
+
+        "quanti_allele_model":           "continuous_in_place",
+        "quanti_allele_value":           "_UNSET",
+        "quanti_diallele_datatype":      "_UNSET",
+
+        "quanti_init_model":             1,
+        "quanti_init_value":             "{{0.7, 0.7}}",
+        "quanti_init_variance":          "_UNSET",
+        "quanti_init_freq":              "_UNSET",
+        "quanti_init_trait_values":      "_UNSET",
+
+        "quanti_environmental_variance": "{{0.000625, 0.000625}}",
+        "quanti_heritability":           "_UNSET",
+        "quanti_heritability_setTime":   "_UNSET",
+        "quanti_heritability_isBroad":   "_UNSET",
+        "quanti_modifier_at_generation": "_UNSET",
+        "quanti_modifier_at_age":        "_UNSET",
+        "quanti_modifier_is_permanent":  "_UNSET",
+
+        "quanti_mutation_rate":          0.0001,
+        "quanti_mutation_variance":      0.0001,
+
+        "quanti_pleiotropy":             "full",
+        "quanti_mutation_correlation":   0.5,
+        "quanti_mutation_matrix":        "_UNSET",
+        "quanti_pleio_matrix":           "_UNSET",
+
+        "quanti_dominance_effects":      "_UNSET",
+        "quanti_dominance_mean":         "_UNSET",
+        "quanti_dominance_sd":           "_UNSET",
+
+        "quanti_epistatic_effects":      "_UNSET",
+        "quanti_epistatic_network":      "_UNSET",
+
+        "quanti_recombination_rate":     0.5,
+        "quanti_genetic_map_resolution": "_UNSET",
+        "quanti_chromosome_num_locus":   "_UNSET",
+        "quanti_genetic_map":            "_UNSET",
+        "quanti_random_genetic_map":     "_UNSET",
+
+        "quanti_output":                 "_UNSET",
+        "quanti_logtime":                "_UNSET",
+        "quanti_dir":                    "_UNSET",
+        "quanti_freq_output":            "_UNSET",
+        "quanti_freq_logtime":           "_UNSET",
+        "quanti_ohta_output":            "_UNSET",
+        "quanti_ohta_logtime":           "_UNSET"
+    },
+    "metaibm_nemo_params": {
+        "quanti_init_freq":              "_UNSET"
+    },
+    "description": [
+        "sp4 -- continuous_in_place (a mutation REPLACES the allele with its effect); founders from quanti_init_model 1 (Nemo); full pleiotropy.",
+        "Founder phenotype 0.7 on both traits, alone in patch4, whose habitat optimum is 0.9.",
+        "full pleiotropy: the same 40 loci as every species, each with its own allele value on BOTH traits, so no quanti_loci_per_trait; quanti_mutation_correlation 0.5: one mutation changes both traits, with correlated effects.",
+        "quanti_init_model 1: every allele 0.7 / 80, then one mutation per locus on a random allele copy -> E[G] = 0.7, Vg = 40 * 1e-4 = 0.004, and the two traits start genetically correlated (r ~ 0.5, from the pleiotropic mutations).",
+        "Vg comes from quanti_mutation_variance here (Vg = 40 * Vm), and later mutations draw their effects from it too."
+    ]
+}

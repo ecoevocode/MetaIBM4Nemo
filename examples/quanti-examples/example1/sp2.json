@@ -1,0 +1,76 @@
+{
+    "non_genetic": {
+        "replicates":                    1,
+        "generations":                   1,
+        "patch_number":                  1,
+        "patch_capacity":                1,
+        "aging":                         1,
+        "run_mode":                      "silent",
+        "root_dir":                      "nemo_cache",
+        "logfile":                       "nemo_cache/nemo.log",
+        "filename":                      "sp2"
+    },
+    "quanti": {
+        "quanti_traits":                 2,
+        "quanti_loci":                   40,
+        "quanti_loci_per_trait":         "{{20, 20}}",
+
+        "quanti_allele_model":           "diallelic_asymmetrical",
+        "quanti_allele_value":           "{{0.0075}{0.0225}}",
+        "quanti_diallele_datatype":      "_UNSET",
+
+        "quanti_init_model":             0,
+        "quanti_init_value":             "_UNSET",
+        "quanti_init_variance":          "_UNSET",
+        "quanti_init_freq":              "_UNSET",
+        "quanti_init_trait_values":      "_UNSET",
+
+        "quanti_environmental_variance": "{{0.000625, 0.000625}}",
+        "quanti_heritability":           "_UNSET",
+        "quanti_heritability_setTime":   "_UNSET",
+        "quanti_heritability_isBroad":   "_UNSET",
+        "quanti_modifier_at_generation": "_UNSET",
+        "quanti_modifier_at_age":        "_UNSET",
+        "quanti_modifier_is_permanent":  "_UNSET",
+
+        "quanti_mutation_rate":          0.001,
+        "quanti_mutation_variance":      "_UNSET",
+
+        "quanti_pleiotropy":             "_UNSET",
+        "quanti_mutation_correlation":   "_UNSET",
+        "quanti_mutation_matrix":        "_UNSET",
+        "quanti_pleio_matrix":           "_UNSET",
+
+        "quanti_dominance_effects":      0.5,
+        "quanti_dominance_mean":         "_UNSET",
+        "quanti_dominance_sd":           "_UNSET",
+
+        "quanti_epistatic_effects":      "_UNSET",
+        "quanti_epistatic_network":      "_UNSET",
+
+        "quanti_recombination_rate":     0.5,
+        "quanti_genetic_map_resolution": "_UNSET",
+        "quanti_chromosome_num_locus":   "_UNSET",
+        "quanti_genetic_map":            "_UNSET",
+        "quanti_random_genetic_map":     "_UNSET",
+
+        "quanti_output":                 "_UNSET",
+        "quanti_logtime":                "_UNSET",
+        "quanti_dir":                    "_UNSET",
+        "quanti_freq_output":            "_UNSET",
+        "quanti_freq_logtime":           "_UNSET",
+        "quanti_ohta_output":            "_UNSET",
+        "quanti_ohta_logtime":           "_UNSET"
+    },
+    "metaibm_nemo_params": {
+        "quanti_init_freq":              "_UNSET"
+    },
+    "description": [
+        "sp2 -- diallelic_asymmetrical; founders from quanti_init_model 0 (Nemo); dominance.",
+        "Founder phenotype 0.3 on both traits, alone in patch2, whose habitat optimum is 0.5.",
+        "allele 0 = 0.0075 (ancestral), allele 1 = 0.0225 -- two rows {{allele 0}{allele 1}}; one row {{b}} would mean 0 / b, and a plain number the symmetric +-b.",
+        "quanti_init_model 0: every allele is allele 0 -> G = 40 * 0.0075 = 0.3 in every founder, Vg = 0: the founders are identical, all variation comes from mutation, and every mutant allele raises G.",
+        "dominance k = 0.5: invisible in the homozygous founders; a mutant allele turns a locus from 2 * 0.0075 into 0.0075 + 0.0225 + k * 0.015, i.e. adds 0.0225.",
+        "mutation rate 1e-3 (10x the others): with no standing variation, the default 1e-4 lets the sexual run go extinct before mutations rescue it (3 of 4 seeds)"
+    ]
+}

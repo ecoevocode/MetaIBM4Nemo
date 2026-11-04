@@ -1,0 +1,76 @@
+{
+    "non_genetic": {
+        "replicates":                    1,
+        "generations":                   1,
+        "patch_number":                  1,
+        "patch_capacity":                1,
+        "aging":                         1,
+        "run_mode":                      "silent",
+        "root_dir":                      "nemo_cache",
+        "logfile":                       "nemo_cache/nemo.log",
+        "filename":                      "sp3"
+    },
+    "quanti": {
+        "quanti_traits":                 2,
+        "quanti_loci":                   40,
+        "quanti_loci_per_trait":         "{{20, 20}}",
+
+        "quanti_allele_model":           "continuous",
+        "quanti_allele_value":           "_UNSET",
+        "quanti_diallele_datatype":      "_UNSET",
+
+        "quanti_init_model":             2,
+        "quanti_init_value":             "{{0.5, 0.5}}",
+        "quanti_init_variance":          "{{0.000625, 0.000625}}",
+        "quanti_init_freq":              "_UNSET",
+        "quanti_init_trait_values":      "_UNSET",
+
+        "quanti_environmental_variance": "{{0.000625, 0.000625}}",
+        "quanti_heritability":           "_UNSET",
+        "quanti_heritability_setTime":   "_UNSET",
+        "quanti_heritability_isBroad":   "_UNSET",
+        "quanti_modifier_at_generation": "_UNSET",
+        "quanti_modifier_at_age":        "_UNSET",
+        "quanti_modifier_is_permanent":  "_UNSET",
+
+        "quanti_mutation_rate":          0.0001,
+        "quanti_mutation_variance":      0.000625,
+
+        "quanti_pleiotropy":             "_UNSET",
+        "quanti_mutation_correlation":   "_UNSET",
+        "quanti_mutation_matrix":        "_UNSET",
+        "quanti_pleio_matrix":           "_UNSET",
+
+        "quanti_dominance_effects":      "_UNSET",
+        "quanti_dominance_mean":         "_UNSET",
+        "quanti_dominance_sd":           "_UNSET",
+
+        "quanti_epistatic_effects":      "{{20, -20, 20, -20, 20, -20}}",
+        "quanti_epistatic_network":      "{{1, 2, 3, 4}}",
+
+        "quanti_recombination_rate":     0.5,
+        "quanti_genetic_map_resolution": "_UNSET",
+        "quanti_chromosome_num_locus":   "_UNSET",
+        "quanti_genetic_map":            "_UNSET",
+        "quanti_random_genetic_map":     "_UNSET",
+
+        "quanti_output":                 "_UNSET",
+        "quanti_logtime":                "_UNSET",
+        "quanti_dir":                    "_UNSET",
+        "quanti_freq_output":            "_UNSET",
+        "quanti_freq_logtime":           "_UNSET",
+        "quanti_ohta_output":            "_UNSET",
+        "quanti_ohta_logtime":           "_UNSET"
+    },
+    "metaibm_nemo_params": {
+        "quanti_init_freq":              "_UNSET"
+    },
+    "description": [
+        "sp3 -- continuous (a mutation ADDS its effect to the allele); founders from quanti_init_model 2 (Nemo); epistasis.",
+        "Founder phenotype 0.5 on both traits, alone in patch3, whose habitat optimum is 0.7.",
+        "quanti_init_model 2: every allele 0.5 / 40 + N(0, 0.000625 / 40) -> E[G] = 0.5, Vg = 0.000625.",
+        "epistasis among loci 1-4 of each trait (network loci are counted within a trait, 1-20, and the same pairs act on both traits),",
+        "one coefficient per pair (1,2) (1,3) (1,4) (2,3) (2,4) (3,4): with g ~ 0.025 a pair moves G by +-0.0125; the signs cancel, so E[G] stays 0.5 and the founders only gain non-additive variance.",
+        "mutation variance 6.25e-4: a mutation adds N(0, 0.025^2) to the allele."
+    ]
+}
