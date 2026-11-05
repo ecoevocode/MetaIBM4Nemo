@@ -1,7 +1,7 @@
 # example1 - a bilingual tutorial 
 
 Four species, four patches: MetaIBM's life cycle on Nemo's genetics (metaibm-nemo); each species lives alone in its own patch.
-Each species = one `spN.json` (its values, then a `description` of the species). What every row means in general: `../quanti-parameters-English.md`;
+Each species = one `spN.json` (its values, then a `description` of the species). What every row means in general: `../USER-MANUAL-quanti-parameters.md`;
 This file explains the four genetically varied species in a simulation and what their values do, with real individuals printed out.
 
 1. Genetics basics
@@ -457,7 +457,7 @@ So in sp4 a mutation lowers that copy's value by about 0.00875 on average. Selec
 # example1
 
 四个物种，四个 patch：在 Nemo 的遗传模型上运行 MetaIBM 的生命周期（metaibm-nemo）；每个物种单独生活在自己的 patch 里。
-每个物种 = 一个 `spN.json`（先是参数值，最后是该物种的 `description`）。每一行参数的通用含义见 `../quanti-parameters-Chinese.md`；
+每个物种 = 一个 `spN.json`（先是参数值，最后是该物种的 `description`）。每一行参数的通用含义见 `../USER-MANUAL-quanti-parameters.md`（中文在后半部分）；
 本文件讲解这四个遗传模型以及它们的参数值起什么作用，并打印真实个体作为例子。英文版在本文件前半部分。
 
 1. 遗传学基础
