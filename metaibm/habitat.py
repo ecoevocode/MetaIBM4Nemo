@@ -230,7 +230,7 @@ class habitat():
                 
                 if self.set['microsite_individuals'][row][col] != None:
                     individual_object = self.set['microsite_individuals'][row][col]
-                    phenotype_ls = individual_object.get_indi_phenotype_ls()
+                    phenotype_ls = individual_object.get_indi_phenotype_ls() if method != 'neutral_uniform' else None   # neutral: no trait is read
                     survival_rate = self.survival_rate(d=base_dead_rate, phenotype_ls=phenotype_ls, env_val_ls=env_val_ls, w=fitness_wid, method=method)
                     
                     if survival_rate < np.random.uniform(0,1,1)[0]:
