@@ -113,12 +113,13 @@ def get_global_habitat_network_disp_among_num_matrix(self, total_disp_among_rate
     global_hab_net_immigrants_matrix = self.get_global_habitat_network_immigrants_matrix(total_disp_among_rate, method=method, **kwargs)
     return self.matrix_around(np.minimum(global_hab_net_emigrants_matrix, global_hab_net_immigrants_matrix))
 
-def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_immigrant_pool(self:'metacommunity', total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
+def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_immigrant_pool(self:'metacommunity', total_disp_among_rate, method='uniform', is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None, **kwargs):
     ''' NemoBackend: dispersal from habitat_i offspring_pool to habitat_j immigrant_pool in the global habitat network '''
 
     if self.patch_num < 2: return '[Dispersal among patches in global habitat network] in %s: patch_num < 2, there are 0 individuals disperse into immigrant_pool among habitats \n' % self.metacommunity_name
         
     global_hab_net_offspring_dispersal_matrix = self.matrix_around(self.get_global_habitat_network_offspring_pool_num_matrix() * self.global_habitat_dispersal_among_rate_matrix(total_disp_among_rate, method=method, **kwargs))
+    if use_disp_trait: disp_matrix = global_hab_net_offspring_dispersal_matrix if is_rescale else self.global_habitat_dispersal_among_rate_matrix(total_disp_among_rate, method=method, **kwargs)   # disp-trait sampling: E (scheme 2) or M (schemes 3/4)
     counter = 0
     for j, (patch_j_id, h_j_id) in enumerate(self.global_habitat_id_ls):
         h_j_object = self.set[patch_j_id].set[h_j_id]
@@ -130,7 +131,8 @@ def dispersal_among_patches_in_global_habitat_network_from_offspring_pool_to_imm
                 
             migrants_i_j_num = int(global_hab_net_offspring_dispersal_matrix[i, j])
             h_i_object = self.set[patch_i_id].set[h_i_id]
-            if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num)
+            if use_disp_trait: migrants_to_j_indi_object_ls += h_i_object.hab_sample_emigrants(disp_matrix[i, j], ('offspring_pool', ), sex_specific, is_rescale, disp_cost, is_remove)   # disp-trait sampling
+            elif is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num)
             else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(h_i_object.offspring_pool, migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pool
 
         random.shuffle(migrants_to_j_indi_object_ls)

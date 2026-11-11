@@ -573,13 +573,14 @@ class metacommunity():
         emigrants_matrix = self.get_emigrants_matrix(total_disp_among_rate, method=method, **kwargs)
         return self.matrix_around(np.minimum(emigrants_matrix, immigrants_matrix))
 
-    def dispersal_among_patches_from_offspring_pool_and_dormancy_pool(self, total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
+    def dispersal_among_patches_from_offspring_pool_and_dormancy_pool(self, total_disp_among_rate, method='uniform', is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None, **kwargs):
         ''' NemoBackend: dispersal from patch_i to patch_j (directly into the microsites); is_remove = True (default): migrants leave their source pool / False: copies disperse, the originals stay '''
         if self.patch_num < 2:
             log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse among patches \n'%(self.metacommunity_name)
             #print(log_info)
             return log_info
         dispersal_among_num_matrix = self.get_dispersal_among_num_matrix(total_disp_among_rate, method=method, **kwargs)
+        if use_disp_trait: disp_matrix = dispersal_among_num_matrix if is_rescale else self.get_disp_among_rate_matrix(total_disp_among_rate, method=method, **kwargs)   # disp-trait sampling: E (scheme 2) or M (schemes 3/4)
         counter = 0
         for j in range(self.patch_num):
             patch_j_id = self.patch_id_ls[j]
@@ -594,7 +595,8 @@ class metacommunity():
                     continue
                 else:
                     migrants_i_j_num = int(dispersal_among_num_matrix[i, j])
-                    if is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
+                    if use_disp_trait: migrants_to_j_indi_object_ls += patch_i_object.patch_sample_emigrants(disp_matrix[i, j], ('offspring_pool', 'dormancy_pool'), sex_specific, is_rescale, disp_cost, is_remove)   # disp-trait sampling
+                    elif is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
                     else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(patch_i_object.get_patch_offspring_and_dormancy_pool(), migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pools
                     
             random.shuffle(patch_j_empty_site_ls)
@@ -612,13 +614,14 @@ class metacommunity():
         #print(log_info)
         return log_info
     
-    def dispersal_aomng_patches_from_offspring_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
+    def dispersal_aomng_patches_from_offspring_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None, **kwargs):
         ''' NemoBackend: exchange between offspring pools among patches into immigrant pool; is_remove = True (default): migrants leave their source pool / False: copies disperse, the originals stay '''
         if self.patch_num < 2:
             log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse into habs_immigrant_pool among patches \n'%(self.metacommunity_name)
             #print(log_info)
             return log_info
         offspring_dispersal_matrix = self.matrix_around(self.get_offspring_pool_num_matrix()*self.get_disp_among_rate_matrix(total_disp_among_rate, method=method, **kwargs))
+        if use_disp_trait: disp_matrix = offspring_dispersal_matrix if is_rescale else self.get_disp_among_rate_matrix(total_disp_among_rate, method=method, **kwargs)   # disp-trait sampling: E (scheme 2) or M (schemes 3/4)
         counter = 0
         for j in range(self.patch_num):
             patch_j_id = self.patch_id_ls[j]
@@ -632,7 +635,8 @@ class metacommunity():
                     continue
                 else:
                     migrants_i_j_num = int(offspring_dispersal_matrix[i, j])
-                    if is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num)
+                    if use_disp_trait: migrants_to_j_indi_object_ls += patch_i_object.patch_sample_emigrants(disp_matrix[i, j], ('offspring_pool', ), sex_specific, is_rescale, disp_cost, is_remove)   # disp-trait sampling
+                    elif is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num)
                     else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(patch_i_object.get_patch_offspring_pool(), migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pools
                     
             random.shuffle(migrants_to_j_indi_object_ls)
@@ -673,13 +677,14 @@ class metacommunity():
         #print(log_info)
         return log_info
 
-    def dispersal_among_patches_from_offsrping_pool_and_dormancy_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', is_remove=True, **kwargs):
+    def dispersal_among_patches_from_offsrping_pool_and_dormancy_pool_to_immigrant_pool(self, total_disp_among_rate, method='uniform', is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None, **kwargs):
         ''' NemoBackend: exchange between offspring pools and dormancy among patches into immigrant pool; is_remove = True (default): migrants leave their source pool / False: copies disperse, the originals stay '''
         if self.patch_num < 2:
             log_info = '[Dispersal among patches] in %s: patch_num < 2, there are 0 individuals disperse into habs_immigrant_pool among patches \n'%(self.metacommunity_name)
             #print(log_info)
             return log_info
         offspring_dormancy_dispersal_matrix = self.matrix_around(self.get_emigrants_matrix(total_disp_among_rate, method=method, **kwargs))
+        if use_disp_trait: disp_matrix = offspring_dormancy_dispersal_matrix if is_rescale else self.get_disp_among_rate_matrix(total_disp_among_rate, method=method, **kwargs)   # disp-trait sampling: E (scheme 2) or M (schemes 3/4)
         counter = 0
         for j in range(self.patch_num):
             patch_j_id = self.patch_id_ls[j]
@@ -693,7 +698,8 @@ class metacommunity():
                     continue
                 else:
                     migrants_i_j_num = int(offspring_dormancy_dispersal_matrix[i, j])
-                    if is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
+                    if use_disp_trait: migrants_to_j_indi_object_ls += patch_i_object.patch_sample_emigrants(disp_matrix[i, j], ('offspring_pool', 'dormancy_pool'), sex_specific, is_rescale, disp_cost, is_remove)   # disp-trait sampling
+                    elif is_remove: migrants_to_j_indi_object_ls += patch_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
                     else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(patch_i_object.get_patch_offspring_and_dormancy_pool(), migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pools
                     
             random.shuffle(migrants_to_j_indi_object_ls)
@@ -713,29 +719,29 @@ class metacommunity():
         #print(log_info)
         return log_info
 
-    def meta_dispersal_within_patch_from_offspring_to_immigrant_pool(self, disp_within_rate, is_remove=True):
+    def meta_dispersal_within_patch_from_offspring_to_immigrant_pool(self, disp_within_rate, is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None):
         ''' NemoBackend: random dispersal within patch '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_dispersal_within_from_offspring_pool_to_immigrant_pool(disp_within_rate, is_remove)
+            counter += patch_object.patch_dispersal_within_from_offspring_pool_to_immigrant_pool(disp_within_rate, is_remove, use_disp_trait, sex_specific, is_rescale, disp_cost)
         log_info = '[Dispersal within process] %s: there are %d individuals disperse into habs_immigrant_pool within patches; there are %d individuals in the immigrant pools in the metacommunity \n'%(self.metacommunity_name, counter, self.meta_immigrant_pool_individual_num())
         #print(log_info)
         return log_info
     
-    def meta_dispersal_within_patch_from_offspring_and_dormancy_to_immigrant_pool(self, disp_within_rate, is_remove=True):
+    def meta_dispersal_within_patch_from_offspring_and_dormancy_to_immigrant_pool(self, disp_within_rate, is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None):
         ''' NemoBackend: random dispersal within patch '''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_dispersal_within_from_offspring_pool_and_dormancy_pool_to_immigrant_pool(disp_within_rate, is_remove)
+            counter += patch_object.patch_dispersal_within_from_offspring_pool_and_dormancy_pool_to_immigrant_pool(disp_within_rate, is_remove, use_disp_trait, sex_specific, is_rescale, disp_cost)
         log_info = '[Dispersal within process] %s: there are %d individuals disperse into habs_immigrant_pool within patches; there are %d individuals in the immigrant pools in the metacommunity \n'%(self.metacommunity_name, counter, self.meta_immigrant_pool_individual_num())
         #print(log_info)
         return log_info
 
-    def meta_dispersal_within_patch_from_offspring_and_dormancy_pool(self, disp_within_rate, is_remove=True):
+    def meta_dispersal_within_patch_from_offspring_and_dormancy_pool(self, disp_within_rate, is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None):
         ''' NemoBackend: random dispersal within patch to empty sites directly'''
         counter = 0
         for patch_id, patch_object in self.set.items():
-            counter += patch_object.patch_dipersal_within_from_offspring_and_dormancy_pool(disp_within_rate, is_remove)
+            counter += patch_object.patch_dipersal_within_from_offspring_and_dormancy_pool(disp_within_rate, is_remove, use_disp_trait, sex_specific, is_rescale, disp_cost)
             
         indi_num = self.get_meta_individual_num()
         empty_sites_num = self.show_meta_empty_sites_num()

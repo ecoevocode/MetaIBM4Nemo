@@ -134,15 +134,49 @@ class patch():
             patch_offspring_and_dormancy_pool += h_object.dormancy_pool
         return patch_offspring_and_dormancy_pool
 
+#*************************** Sampling individuals for dispersal (patches as nodes) ******************************************************
+#** scheme 1: draw e_ij (num), equal probability; scheme 2: draw e_ij, weighted by v_k; scheme 3: leaves source_i (v_k), goes to sink_j (m_ij); scheme 4: then dies on the way (c)
     def sample_offspring_without_replacement(self, num, pool_name=('offspring_pool', )):
-        ''' Sample `num` offspring (individual_objs or offspring_markers) across all habitats of this patch 
-        and REMOVE them from their source pool, then return a Python-list of sampled offspring (objs or markers).
-        pool_name could be ('offspring_pool', 'dormancy_pool') or ('offspring_marker_pool') '''
+        ''' scheme 1: draw `num` individuals (objs or markers), each (individual k) sampled with same probability; removed from their pool; 
+        INPUT: ('offspring_pool', 'dormancy_pool') or ('offspring_marker_pool'); RETURN: list of offspring (objs or markers) '''
         idx_ls = [(h_object, name, ObjOrMarker) for h_object in self.set.values() for name in pool_name for ObjOrMarker in getattr(h_object, name)]
         picked_ls = random.sample(idx_ls, min(num, len(idx_ls)))
         for h_object, name, ObjOrMarker in picked_ls: 
             getattr(h_object, name).remove(ObjOrMarker)
         return [ObjOrMarker for _, _, ObjOrMarker in picked_ls]
+
+    def patch_sample_emigrants(self, disp_num_or_rate, pool_name=('offspring_pool', ), sex_specific=False, is_rescale=True, disp_cost=None, is_remove=True):
+        ''' NemoBackend: sample this patch's emigrants (pools of all its habitats) to one destination j, weighted by the disp value v (fdisp; mdisp for males if sex_specific)
+        INPUT: disp_num_or_rate = e_ij (is_rescale=True, scheme 2) or m_ij (is_rescale=False, schemes 3/4); disp_cost = None (default; die on the way) or c or (c_fem, c_mal) (scheme 4); is_remove = True (default, sampling without replacement);
+        RETURN: list of surviving emigrants '''
+        candidate_ls = [(h_object, name, indi) for h_object in self.set.values() for name in pool_name for indi in getattr(h_object, name)]
+        v_array = np.array([indi.indfactory.metaibm_nemo_params['dispersal_fixed_rate'] if indi.gender == indi.indfactory.metaibm_nemo_params.get('dispersal_fixed_trait')
+                            else indi.get_trait_value('mdisp' if sex_specific and indi.gender == 'male' else 'fdisp') for _, _, indi in candidate_ls], dtype=float)
+        if is_rescale: emigrant_ls, dead_ls = self._patch_sample_by_number(candidate_ls, v_array, disp_num_or_rate), []         # scheme 2: draw e_ij (num) as in scheme 1, weighted by v_k
+        else:          emigrant_ls, dead_ls = self._patch_sample_by_rate(candidate_ls, v_array, disp_num_or_rate, disp_cost)    # schemes 3/4: individual k leaves source_i (v_k), and goes to sink_j (m_ij); then dies on the way (c)
+        if not is_remove: return [indi.make_copy() for _, _, indi in emigrant_ls]                                               # NemoBackend Method
+        for h_object, name, indi in emigrant_ls + dead_ls: getattr(h_object, name).remove(indi)
+        for _, _, indi in dead_ls: indi.recycle()                                                                               # NemoBackend Method
+        return [indi for _, _, indi in emigrant_ls]
+
+    def _patch_sample_by_number(self, candidate_ls, v_array, disp_num):
+        ''' scheme 2: draw disp_num individuals, each (individual k) sampled with P = v_k / sum(v); RETURN: list of candidates '''
+        draw_num = min(int(disp_num), np.count_nonzero(v_array))               # v = 0 is never drawn
+        if draw_num == 0: return []
+        return [candidate_ls[k] for k in np.random.choice(len(candidate_ls), draw_num, replace=False, p=v_array / v_array.sum())]
+
+    def _patch_sample_by_rate(self, candidate_ls, v_array, disp_rate, disp_cost=None):
+        ''' schemes 3/4: candidate k leaves source_i (v_k), and goes to sink_j (m_ij); then dies on the way (c) or (c_fem, c_mal) by gender; RETURN: (emigrants_ls, dead_ls) '''
+        if disp_cost is None: return [candidate for candidate, v in zip(candidate_ls, v_array) if np.random.random() < v * disp_rate], []   # scheme 3: individual k leaves source_i (v_k), and goes to sink_j (m_ij)
+        cost_female, cost_male = disp_cost if isinstance(disp_cost, (tuple, list)) else (disp_cost, disp_cost)                              # scheme 4: individual k leaves source_i (v_k), and goes to sink_j (m_ij); then dies on the way (c)
+        emigrant_ls, dead_ls = [], []
+        for (h_object, name, indi), v in zip(candidate_ls, v_array):
+            if np.random.random() < v * disp_rate:
+                cost = cost_male if indi.gender == 'male' else cost_female
+                if cost > 0 and np.random.random() < cost: dead_ls.append((h_object, name, indi))
+                else: emigrant_ls.append((h_object, name, indi))
+        return emigrant_ls, dead_ls
+#*******************************************************************************************************
     
     def get_patch_microsites_individals_sp_id_values(self):
         ''' get species_id, phenotypes distribution in the patch as values set '''
@@ -347,11 +381,12 @@ class patch():
         habs_immigrants_matrix = self.get_habs_immigrants_matrix(disp_within_rate)
         return self.patch_matrix_around(np.minimum(habs_emigrants_matrix, habs_immigrants_matrix))
 
-    def patch_dipersal_within_from_offspring_and_dormancy_pool(self, disp_within_rate, is_remove=True):
+    def patch_dipersal_within_from_offspring_and_dormancy_pool(self, disp_within_rate, is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None):
         ''' NemoBackend: dispersal within the patch -- individuals from habitat i's offspring + dormancy pools germinate directly into empty microsites of habitat j (i != j); migrants left without an empty site are recycled
         INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays in its source pool and a copy disperses (individual.make_copy())
         RETURN: number germinated (after dispersal) '''
         disp_within_num_matrix = self.get_dispersal_within_num_matrix(disp_within_rate)
+        if use_disp_trait: disp_matrix = disp_within_num_matrix if is_rescale else self.get_patch_dispersal_within_rate_matrix(disp_within_rate)   # disp-trait sampling: E (scheme 2) or M (schemes 3/4)
         counter = 0
         for j in range(self.hab_num):
             h_j_id = self.hab_id_ls[j]
@@ -366,7 +401,8 @@ class patch():
                     continue
                 else:
                     migrants_i_j_num = int(disp_within_num_matrix[i, j])
-                    if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
+                    if use_disp_trait: migrants_to_j_indi_object_ls += h_i_object.hab_sample_emigrants(disp_matrix[i, j], ('offspring_pool', 'dormancy_pool'), sex_specific, is_rescale, disp_cost, is_remove)   # disp-trait sampling
+                    elif is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
                     else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(h_i_object.offspring_pool + h_i_object.dormancy_pool, migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pools
                     
             random.shuffle(h_j_empty_site_ls)
@@ -403,11 +439,12 @@ class patch():
             counter += len(migrants_to_j_offspring_marker_ls)
         return counter
     
-    def patch_dispersal_within_from_offspring_pool_to_immigrant_pool(self, disp_within_rate, is_remove=True):
+    def patch_dispersal_within_from_offspring_pool_to_immigrant_pool(self, disp_within_rate, is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None):
         ''' NemoBackend: dispersal within the patch: offspring from habitat i's offspring_pool move into habitat j's immigrant_pool (i != j)
         INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays in its source pool and a copy disperses (individual.make_copy())
         RETURN: number of migrants '''
         offspring_dispersal_matrix = self.patch_matrix_around(self.get_patch_habs_offspring_num_matrix()*self.get_patch_dispersal_within_rate_matrix(disp_within_rate))
+        if use_disp_trait: disp_matrix = offspring_dispersal_matrix if is_rescale else self.get_patch_dispersal_within_rate_matrix(disp_within_rate)   # disp-trait sampling: E (scheme 2) or M (schemes 3/4)
         counter = 0
         for j in range(self.hab_num):
             h_j_id = self.hab_id_ls[j]
@@ -421,7 +458,8 @@ class patch():
                     continue
                 else:
                     migrants_i_j_num = int(offspring_dispersal_matrix[i, j])
-                    if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num)
+                    if use_disp_trait: migrants_to_j_indi_object_ls += h_i_object.hab_sample_emigrants(disp_matrix[i, j], ('offspring_pool', ), sex_specific, is_rescale, disp_cost, is_remove)   # disp-trait sampling
+                    elif is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num)
                     else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(h_i_object.offspring_pool, migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pool
                     
             random.shuffle(migrants_to_j_indi_object_ls)
@@ -429,11 +467,12 @@ class patch():
             counter += len(migrants_to_j_indi_object_ls)
         return counter
     
-    def patch_dispersal_within_from_offspring_pool_and_dormancy_pool_to_immigrant_pool(self, disp_within_rate, is_remove=True):
+    def patch_dispersal_within_from_offspring_pool_and_dormancy_pool_to_immigrant_pool(self, disp_within_rate, is_remove=True, use_disp_trait=False, sex_specific=False, is_rescale=True, disp_cost=None):
         ''' NemoBackend: dispersal within the patch (m_within): individuals from habitat i's offspring + dormancy pools move into habitat j's immigrant_pool (i != j)
         INPUT: disp_within_rate (m_within); is_remove = True (default): sampling without replacement, migrants leave their source pool / False: sampling with replacement across destinations, the original stays in its source pool and a copy disperses (individual.make_copy())
         RETURN: number of migrants '''
         offspring_and_dormancy_dispersal_matrix = self.patch_matrix_around(self.get_habs_emigrants_matrix(disp_within_rate))
+        if use_disp_trait: disp_matrix = offspring_and_dormancy_dispersal_matrix if is_rescale else self.get_patch_dispersal_within_rate_matrix(disp_within_rate)   # disp-trait sampling: E (scheme 2) or M (schemes 3/4)
         counter = 0
         for j in range(self.hab_num):
             h_j_id = self.hab_id_ls[j]
@@ -447,7 +486,8 @@ class patch():
                     continue
                 else:
                     migrants_i_j_num = int(offspring_and_dormancy_dispersal_matrix[i, j])
-                    if is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
+                    if use_disp_trait: migrants_to_j_indi_object_ls += h_i_object.hab_sample_emigrants(disp_matrix[i, j], ('offspring_pool', 'dormancy_pool'), sex_specific, is_rescale, disp_cost, is_remove)   # disp-trait sampling
+                    elif is_remove: migrants_to_j_indi_object_ls += h_i_object.sample_offspring_without_replacement(migrants_i_j_num, pool_name=('offspring_pool', 'dormancy_pool'))
                     else: migrants_to_j_indi_object_ls += [indi_object.make_copy() for indi_object in random.sample(h_i_object.offspring_pool + h_i_object.dormancy_pool, migrants_i_j_num)]   # NemoBackend Method: individual.make_copy(), the originals stay in their source pools
                     
             random.shuffle(migrants_to_j_indi_object_ls)

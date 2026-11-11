@@ -166,17 +166,50 @@ class habitat():
                     continue
             return hab_pairwise_occupied_sites_pos_ls
 
+#*************************** Sampling individuals for dispersal (habitats as nodes) ******************************************************
+#** scheme 1: draw e_ij (num), equal probability; scheme 2: draw e_ij, weighted by v_k; scheme 3: leaves source_i (v_k), goes to sink_j (m_ij); scheme 4: then dies on the way (c)
     def sample_offspring_without_replacement(self, num, pool_name=('offspring_pool', )):
-        ''' Sample `num` offspring (individual_objs or offspring_markers) of this habitat
-        and REMOVE them from their source pool, then return a Python-list of sampled offspring (objs or markers).
-        pool_name could be ('offspring_pool', 'dormancy_pool') or ('offspring_marker_pool') '''
-
+        ''' scheme 1: draw `num` individuals (objs or markers), each (individual k) sampled with same probability; removed from their pool; 
+        INPUT: ('offspring_pool', 'dormancy_pool') or ('offspring_marker_pool'); RETURN: list of offspring (objs or markers) '''
         idx_ls = [(name, ObjOrMarker) for name in pool_name for ObjOrMarker in getattr(self, name)]
         num = min(num, len(idx_ls))
         picked_ls = random.sample(idx_ls, num)
         for name, ObjOrMarker in picked_ls: 
             getattr(self, name).remove(ObjOrMarker)
         return [ObjOrMarker for _, ObjOrMarker in picked_ls]
+    
+    def hab_sample_emigrants(self, disp_num_or_rate, pool_name=('offspring_pool', ), sex_specific=False, is_rescale=True, disp_cost=None, is_remove=True):
+        ''' NemoBackend: sample this habitat's emigrants to one destination j, weighted by the disp value v (fdisp; mdisp for males if sex_specific)
+        INPUT: disp_num_or_rate = e_ij (is_rescale=True, scheme 2) or m_ij (is_rescale=False, schemes 3/4); disp_cost = None (default; die on the way) or c or (c_fem, c_mal) (scheme 4); is_remove = True (default, sampling without replacement);
+        RETURN: list of surviving emigrants '''
+        candidate_ls = [(name, indi) for name in pool_name for indi in getattr(self, name)]
+        v_array = np.array([indi.indfactory.metaibm_nemo_params['dispersal_fixed_rate'] if indi.gender == indi.indfactory.metaibm_nemo_params.get('dispersal_fixed_trait')
+                            else indi.get_trait_value('mdisp' if sex_specific and indi.gender == 'male' else 'fdisp') for _, indi in candidate_ls], dtype=float)
+        if is_rescale: emigrant_ls, dead_ls = self._hab_sample_by_number(candidate_ls, v_array, disp_num_or_rate), []        # scheme 2: draw e_ij (num) as in scheme 1, weighted by v_k
+        else:          emigrant_ls, dead_ls = self._hab_sample_by_rate(candidate_ls, v_array, disp_num_or_rate, disp_cost)   # schemes 3/4: individual k leaves source_i (v_k), and goes to sink_j (m_ij); then dies on the way (c)
+        if not is_remove: return [indi.make_copy() for _, indi in emigrant_ls]                                               # NemoBackend Method
+        for name, indi in emigrant_ls + dead_ls: getattr(self, name).remove(indi)
+        for _, indi in dead_ls: indi.recycle()                                                                               # NemoBackend Method
+        return [indi for _, indi in emigrant_ls]
+
+    def _hab_sample_by_number(self, candidate_ls, v_array, disp_num):
+        ''' scheme 2: draw disp_num individuals, each (individual k) sampled with P = v_k / sum(v); RETURN: list of candidates '''
+        draw_num = min(int(disp_num), np.count_nonzero(v_array))               # v = 0 is never drawn
+        if draw_num == 0: return []
+        return [candidate_ls[k] for k in np.random.choice(len(candidate_ls), draw_num, replace=False, p=v_array / v_array.sum())]
+
+    def _hab_sample_by_rate(self, candidate_ls, v_array, disp_rate, disp_cost=None):
+        ''' schemes 3/4: candidate k leaves source_i (v_k), and goes to sink_j (m_ij); then dies on the way (c) or (c_fem, c_mal) by gender; RETURN: (emigrants_ls, dead_ls) '''
+        if disp_cost is None: return [candidate for candidate, v in zip(candidate_ls, v_array) if np.random.random() < v * disp_rate], []   # scheme 3: individual k leaves source_i (v_k), and goes to sink_j (m_ij)
+        cost_female, cost_male = disp_cost if isinstance(disp_cost, (tuple, list)) else (disp_cost, disp_cost)                              # scheme 4: individual k leaves source_i (v_k), and goes to sink_j (m_ij); then dies on the way (c)
+        emigrant_ls, dead_ls = [], []
+        for (name, indi), v in zip(candidate_ls, v_array):
+            if np.random.random() < v * disp_rate:
+                cost = cost_male if indi.gender == 'male' else cost_female
+                if cost > 0 and np.random.random() < cost: dead_ls.append((name, indi))
+                else: emigrant_ls.append((name, indi))
+        return emigrant_ls, dead_ls
+#*******************************************************************************************************
 
     def hab_initialize(self, indfactories, species_2_phenotype_ls, reproduce_mode='sexual'):
         ''' NemoBackend: reset the microsites (residents recycled, pools untouched), then fill every microsite with a founder of the species matched to this habitat's mean environment

@@ -73,10 +73,17 @@ class indfactory():
         built_traits = {trait for trait in ('delet', 'dmi', 'fdisp', 'mdisp', 'ntrl', 'quant', 'wolb') if self._nemo_simulator._pop.getTraitPrototype(trait) is not None}
         if built_traits != set(self.trait_keys): raise ValueError('species %r: trait_keys=%r, but nemo_params built %r' % (self.species_id, self.trait_keys, sorted(built_traits)))
 
+    def _check_dispersal_fixed_params(self):
+        ''' (fdisp / mdisp) metaibm_nemo_params dispersal_fixed_trait / dispersal_fixed_rate, checked as Nemo checks them '''
+        fixed_trait, fixed_rate = self.metaibm_nemo_params.get('dispersal_fixed_trait'), self.metaibm_nemo_params.get('dispersal_fixed_rate')
+        if fixed_trait not in (None, 'female', 'male'): raise ValueError("species %r: dispersal_fixed_trait must be 'female' or 'male', got %r" % (self.species_id, fixed_trait))
+        if fixed_rate is not None and not 0 <= fixed_rate <= 1: raise ValueError('species %r: dispersal_fixed_rate must be in [0, 1], got %r' % (self.species_id, fixed_rate))
+
     def _boot(self, seed):
         ''' boot this species' sim and build its IndFactory from the prototypes in trait_keys; save the static Individual::currentID first, restore it last -- makePrototype() zeroes it, and colliding IDs reuse crossovers
             INPUT:  seed = int or None -- None: random_seed in nemo_params, else a time-based seed '''
         self._check_quanti_traits_num()
+        self._check_dispersal_fixed_params()
         saved_id = self.get_current_individual_id()
         try:
             self._nemo_simulator = NemoSim(self.nemo_params, seed=seed)   # params -> .ini -> parsed records; resolve the seed; empty Metapop + SimRunner -- no prototypes, RAND not seeded yet
